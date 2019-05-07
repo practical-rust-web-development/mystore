@@ -11,16 +11,19 @@ extern crate serde_json;
 #[macro_use] 
 extern crate serde_derive;
 
+extern crate actix;
 extern crate actix_web;
-use actix_web::{server, App, HttpRequest};
-
-fn index(_req: &HttpRequest) -> &'static str {
-    "Hello world!"
-}
+use actix_web::{server, App, http};
 
 fn main() {
-    server::new(|| App::new().resource("/", |r| r.f(index)))
-        .bind("127.0.0.1:8088")
-        .unwrap()
-        .run();
+    let sys = actix::System::new("mystore");
+
+    server::new(
+    || App::new()
+        .resource("/products", |r| r.method(http::Method::GET).f(handlers::products::index)))
+    .bind("127.0.0.1:8088").unwrap()
+    .start();
+
+    println!("Started http server: 127.0.0.1:8088");
+    let _ = sys.run();
 }

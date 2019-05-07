@@ -1,5 +1,8 @@
 use crate::schema::products;
 
+#[derive(Serialize, Deserialize)]
+pub struct ProductList(pub Vec<Product>);
+
 #[derive(Queryable, Serialize, Deserialize)]
 pub struct Product {
     pub id: i32,
@@ -16,8 +19,8 @@ pub struct NewProduct {
     pub price: Option<i32>
 }
 
-impl Product {
-    pub fn list() -> Vec<Product> {
+impl ProductList {
+    pub fn list() -> Self {
         use diesel::RunQueryDsl;
         use diesel::QueryDsl;
         use crate::schema::products::dsl::*;
@@ -25,9 +28,12 @@ impl Product {
 
         let connection = establish_connection();
 
-        products
-            .limit(10)
-            .load::<Product>(&connection)
-            .expect("Error loading products")
+        let result = 
+            products
+                .limit(10)
+                .load::<Product>(&connection)
+                .expect("Error loading products");
+
+        ProductList(result)
     }
 }
