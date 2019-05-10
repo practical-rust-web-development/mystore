@@ -13,14 +13,19 @@ extern crate serde_derive;
 
 extern crate actix;
 extern crate actix_web;
-use actix_web::{server, App, http};
+extern crate futures;
+use actix_web::{App, HttpServer, web};
 
 fn main() {
     let sys = actix::System::new("mystore");
 
-    server::new(
+    HttpServer::new(
     || App::new()
-        .resource("/products", |r| r.method(http::Method::GET).f(handlers::products::index)))
+        .service(
+            web::resource("/products")
+                .route(web::get().to_async(handlers::products::index))
+                .route(web::post().to_async(handlers::products::create))
+        ))
     .bind("127.0.0.1:8088").unwrap()
     .start();
 
