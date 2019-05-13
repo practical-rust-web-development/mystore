@@ -25,7 +25,12 @@ fn main() {
             web::resource("/products")
                 .route(web::get().to_async(handlers::products::index))
                 .route(web::post().to_async(handlers::products::create))
-        ))
+        )
+        .service(
+            web::resource("/products/{id}")
+                .route(web::get().to_async(handlers::products::show))
+        )
+    )
     .bind("127.0.0.1:8088").unwrap()
     .start();
 
