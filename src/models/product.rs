@@ -11,11 +11,11 @@ pub struct Product {
     pub price: Option<i32>
 }
 
-#[derive(Insertable, Deserialize)]
+#[derive(Insertable, Deserialize, AsChangeset)]
 #[table_name="products"]
 pub struct NewProduct {
-    pub name: String,
-    pub stock: f64,
+    pub name: Option<String>,
+    pub stock: Option<f64>,
     pub price: Option<i32>
 }
 
@@ -70,6 +70,20 @@ impl Product {
         let connection = establish_connection();
 
         diesel::delete(dsl::products.find(id)).execute(&connection)?;
+        Ok(())
+    }
+
+    pub fn update(id: &i32, new_product: &NewProduct) -> Result<(), diesel::result::Error> {
+        use diesel::QueryDsl;
+        use diesel::RunQueryDsl;
+        use crate::schema::products::dsl;
+        use crate::db_connection::establish_connection;
+
+        let connection = establish_connection();
+
+        diesel::update(dsl::products.find(id))
+            .set(new_product)
+            .execute(&connection)?;
         Ok(())
     }
 }
