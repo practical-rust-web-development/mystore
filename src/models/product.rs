@@ -60,4 +60,16 @@ impl Product {
 
         products::table.find(id).first(&connection)
     }
+
+    pub fn destroy(id: &i32) -> Result<(), diesel::result::Error> {
+        use diesel::QueryDsl;
+        use diesel::RunQueryDsl;
+        use crate::schema::products::dsl;
+        use crate::db_connection::establish_connection;
+
+        let connection = establish_connection();
+
+        diesel::delete(dsl::products.find(id)).execute(&connection)?;
+        Ok(())
+    }
 }

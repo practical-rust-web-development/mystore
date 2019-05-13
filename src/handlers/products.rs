@@ -27,3 +27,11 @@ pub fn show(id: web::Path<i32>) -> Result<HttpResponse, HttpResponse> {
             HttpResponse::InternalServerError().json(e.to_string())
         })
 }
+
+pub fn destroy(id: web::Path<i32>) -> Result<HttpResponse, HttpResponse> {
+    Product::destroy(&id)
+        .map(|_| HttpResponse::Ok().json(()))
+        .map_err(|e| {
+            HttpResponse::InternalServerError().json(e.to_string())
+        })
+}

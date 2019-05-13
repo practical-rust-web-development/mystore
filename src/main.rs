@@ -29,6 +29,7 @@ fn main() {
         .service(
             web::resource("/products/{id}")
                 .route(web::get().to_async(handlers::products::show))
+                .route(web::delete().to_async(handlers::products::destroy))
         )
     )
     .bind("127.0.0.1:8088").unwrap()
