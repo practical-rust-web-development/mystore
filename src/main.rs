@@ -13,7 +13,6 @@ extern crate serde_derive;
 
 extern crate actix;
 extern crate actix_web;
-extern crate futures;
 use actix_web::{App, HttpServer, web};
 use db_connection::establish_connection;
 
