@@ -53,30 +53,3 @@ impl FromRequest for LoggedUser {
         Err(HttpResponse::Unauthorized().into())
     }
 }
-
-use crate::models::MyStoreResponder;
-use serde::Serialize;
-use actix_web::{ Responder, Error };
-use actix_http::Response;
-use actix_http::http::StatusCode;
-
-impl<T: Serialize> Responder for MyStoreResponder<T> {
-    type Error = Error;
-    type Future = Result<Response, Error>;
-
-    fn respond_to(self, request: &HttpRequest) -> Self::Future {
-        let body = match serde_json::to_string(&self.0) {
-            Ok(body) => body,
-            Err(e) => return Err(e.into()),
-        };
-
-        let generator = 
-            request.app_data::<CsrfTokenGenerator>()
-            .ok_or(actix_web::error::ErrorInternalServerError("Can't get generator"))?;
-
-        Ok(Response::build(StatusCode::OK)
-            .content_type("application/json")
-            .header("X-CSRF-TOKEN", hex::encode(generator.generate()))
-            .body(body))
-    }
-}

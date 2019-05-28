@@ -11,15 +11,13 @@ pub fn index(_user: LoggedUser, pool: web::Data<PgPool>) -> Result<HttpResponse>
 }
 
 use crate::models::product::NewProduct;
-use crate::models::MyStoreResponder;
-use actix_web::Responder;
 
 pub fn create(_user: LoggedUser, new_product: web::Json<NewProduct>, pool: web::Data<PgPool>) ->
- impl Responder {
+ Result<HttpResponse> {
     let pg_pool = pg_pool_handler(pool)?;
     new_product
         .create(&pg_pool)
-        .map(|product| MyStoreResponder(product))
+        .map(|product| HttpResponse::Ok().json(product))
         .map_err(|e| {
             actix_web::error::ErrorInternalServerError(e)
         })
