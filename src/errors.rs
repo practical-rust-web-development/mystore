@@ -2,6 +2,7 @@ use std::fmt;
 use bcrypt::BcryptError;
 use diesel::result;
 
+#[derive(Debug)]
 pub enum MyStoreError {
     HashError(BcryptError),
     DBError(result::Error),

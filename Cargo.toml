@@ -4,6 +4,10 @@ version = "2.0.0"
 authors = ["werner <werner_a_e@yahoo.es>"]
 edition = "2018"
 
+[lib]
+name = "mystore_lib"
+path = "src/lib.rs"
+
 [dependencies]
 actix = "0.8"
 actix-web = "1.0.0-rc"
@@ -21,3 +25,8 @@ hex = "0.3.2"
 env_logger = "0.6.1"
 log = "0.4.6"
 actix-http = "0.2.1"
+
+[dev-dependencies]
+bytes = "0.4"
+actix-http-test = "0.2.0"
+regex = "1"

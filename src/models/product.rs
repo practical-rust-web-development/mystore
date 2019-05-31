@@ -12,7 +12,7 @@ pub struct Product {
     pub price: Option<i32>
 }
 
-#[derive(Insertable, Deserialize, AsChangeset)]
+#[derive(Insertable, Deserialize, Serialize, AsChangeset)]
 #[table_name="products"]
 pub struct NewProduct {
     pub name: Option<String>,
