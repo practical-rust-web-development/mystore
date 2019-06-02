@@ -23,7 +23,7 @@ mod test{
     use crate::common::db_connection::establish_connection;
     use std::cell::{ RefCell, RefMut };
 
-    use ::mystore_lib::models::product::NewProduct;
+    use ::mystore_lib::models::product::{ Product, NewProduct };
 
     #[test]
     fn test() {
@@ -47,7 +47,7 @@ mod test{
                     .wrap(
                         cors::Cors::new()
                             .allowed_origin("localhost")
-                            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
+                            .allowed_methods(vec!["GET", "POST", "PUT", "PATCH", "DELETE"])
                             .allowed_headers(vec![header::AUTHORIZATION,
                                                   header::CONTENT_TYPE,
                                                   header::ACCEPT,
@@ -68,6 +68,12 @@ mod test{
                             .route(web::post().to(::mystore_lib::handlers::products::create))
                     )
                     .service(
+                        web::resource("/products/{id}")
+                            .route(web::get().to(::mystore_lib::handlers::products::show))
+                            .route(web::delete().to(::mystore_lib::handlers::products::destroy))
+                            .route(web::patch().to(::mystore_lib::handlers::products::update))
+                    )
+                    .service(
                         web::resource("/auth")
                             .route(web::post().to(::mystore_lib::handlers::authentication::login))
                             .route(web::delete().to(::mystore_lib::handlers::authentication::logout))
@@ -84,9 +90,29 @@ mod test{
             stock: Some(10.4),
             price: Some(1892)
         };
-        create_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), shoe);
-        products_index(srv.borrow_mut(), csrf_token, request_cookie)
 
+        let hat = NewProduct {
+            name: Some("Hat".to_string()),
+            stock: Some(15.0),
+            price: Some(2045)
+        };
+
+        let pants = NewProduct {
+            name: Some("Pants".to_string()),
+            stock: Some(25.0),
+            price: Some(3025)
+        };
+        let shoe_db = create_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), shoe);
+        let hat_db = create_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), hat);
+        create_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), pants);
+        show_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), shoe_db.id, shoe_db);
+        let updated_pants = NewProduct {
+            name: Some("Pants".to_string()),
+            stock: Some(30.0),
+            price: Some(3025)
+        };
+        update_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), hat_db.id, updated_pants);
+        products_index(srv.borrow_mut(), csrf_token, request_cookie);
     }
 
     fn login(mut srv: RefMut<TestServerRuntime>) -> (HeaderValue, Cookie) {
@@ -145,7 +171,7 @@ mod test{
     fn create_a_product(mut srv: RefMut<TestServerRuntime>,
                             csrf_token: HeaderValue,
                             request_cookie: Cookie,
-                            product: NewProduct) {
+                            product: NewProduct) -> Product {
 
         let request = srv
                           .post("/products")
@@ -154,11 +180,60 @@ mod test{
                           .cookie(request_cookie)
                           .timeout(std_duration::from_secs(600));
 
-        let response =
+        let mut response =
             srv
                 .block_on(request.send_body(json!(product).to_string()))
                 .unwrap();
 
+        assert!(response.status().is_success());
+
+        let bytes = srv.block_on(response.body()).unwrap();
+        let body = str::from_utf8(&bytes).unwrap();
+        serde_json::from_str(body).unwrap()
+    }
+
+    fn show_a_product(mut srv: RefMut<TestServerRuntime>,
+                          csrf_token: HeaderValue,
+                          request_cookie: Cookie,
+                          id: i32,
+                          expected_product: Product) {
+
+        let request = srv
+                        .get(format!("/products/{}", id))
+                        .header("x-csrf-token", csrf_token.to_str().unwrap())
+                        .cookie(request_cookie);
+
+        let mut response = srv.block_on(request.send()).unwrap();
+        assert!(response.status().is_success());
+
+        assert_eq!(
+            response.headers().get(http::header::CONTENT_TYPE).unwrap(),
+            "application/json"
+        );
+
+        let bytes = srv.block_on(response.body()).unwrap();
+        let body = str::from_utf8(&bytes).unwrap();
+        let response_product: Product = serde_json::from_str(body).unwrap();
+        assert_eq!(response_product, expected_product);
+    }
+
+    fn update_a_product(mut srv: RefMut<TestServerRuntime>,
+                          csrf_token: HeaderValue,
+                          request_cookie: Cookie,
+                          id: i32,
+                          changes_to_product: NewProduct) {
+
+        let request = srv
+                        .request(http::Method::PATCH, srv.url(&format!("/products/{}", id)))
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .header("x-csrf-token", csrf_token.to_str().unwrap())
+                        .cookie(request_cookie)
+                        .timeout(std_duration::from_secs(600));
+
+        let response =
+            srv
+                .block_on(request.send_body(json!(changes_to_product).to_string()))
+                .unwrap();
         assert!(response.status().is_success());
     }
 
@@ -180,7 +255,7 @@ mod test{
 
         let bytes = srv.block_on(response.body()).unwrap();
         let body = str::from_utf8(&bytes).unwrap();
-        let re = Regex::new(r#"[{"id":\d*,"name":"Show","stock":10.4,"price":1892}]"#).unwrap();
+        let re = Regex::new(r#"[{"id":\d*,"name":"Shoe","stock":10.4,"price":1892},{"id":\d*,"name":"Hat","stock":15.0,"price":2045},{"id":\d*,"name":"Pants","stock":25.0,"price":3025}]"#).unwrap();
         assert!(re.is_match(body));
     }
 

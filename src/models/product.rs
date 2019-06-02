@@ -4,7 +4,7 @@ use diesel::PgConnection;
 #[derive(Serialize, Deserialize)]
 pub struct ProductList(pub Vec<Product>);
 
-#[derive(Queryable, Serialize, Deserialize)]
+#[derive(Queryable, Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct Product {
     pub id: i32,
     pub name: String,
@@ -12,7 +12,7 @@ pub struct Product {
     pub price: Option<i32>
 }
 
-#[derive(Insertable, Deserialize, Serialize, AsChangeset)]
+#[derive(Insertable, Deserialize, Serialize, AsChangeset, Debug, Clone)]
 #[table_name="products"]
 pub struct NewProduct {
     pub name: Option<String>,
@@ -73,5 +73,15 @@ impl Product {
             .set(new_product)
             .execute(connection)?;
         Ok(())
+    }
+}
+
+impl PartialEq<Product> for NewProduct {
+    fn eq(&self, other: &Product) -> bool {
+        let new_product = self.clone();
+        let product = other.clone();
+        new_product.name == Some(product.name) &&
+        new_product.stock == Some(product.stock) &&
+        new_product.price == product.price
     }
 }
