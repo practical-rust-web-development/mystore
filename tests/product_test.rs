@@ -102,17 +102,17 @@ mod test{
             stock: Some(25.0),
             price: Some(3025)
         };
-        let shoe_db = create_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), shoe);
-        let hat_db = create_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), hat);
-        create_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), pants);
-        show_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), shoe_db.id, shoe_db);
-        let updated_pants = NewProduct {
-            name: Some("Pants".to_string()),
+        let shoe_db = create_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), &shoe);
+        let hat_db = create_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), &hat);
+        create_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), &pants);
+        show_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), &shoe_db.id, &shoe_db);
+        let updated_hat = NewProduct {
+            name: Some("Hat".to_string()),
             stock: Some(30.0),
             price: Some(3025)
         };
-        update_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), hat_db.id, updated_pants);
-        products_index(srv.borrow_mut(), csrf_token, request_cookie);
+        update_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), &hat_db.id, &updated_hat);
+        products_index(srv.borrow_mut(), csrf_token, request_cookie, vec![shoe, updated_hat, pants]);
     }
 
     fn login(mut srv: RefMut<TestServerRuntime>) -> (HeaderValue, Cookie) {
@@ -171,7 +171,7 @@ mod test{
     fn create_a_product(mut srv: RefMut<TestServerRuntime>,
                             csrf_token: HeaderValue,
                             request_cookie: Cookie,
-                            product: NewProduct) -> Product {
+                            product: &NewProduct) -> Product {
 
         let request = srv
                           .post("/products")
@@ -195,8 +195,8 @@ mod test{
     fn show_a_product(mut srv: RefMut<TestServerRuntime>,
                           csrf_token: HeaderValue,
                           request_cookie: Cookie,
-                          id: i32,
-                          expected_product: Product) {
+                          id: &i32,
+                          expected_product: &Product) {
 
         let request = srv
                         .get(format!("/products/{}", id))
@@ -214,14 +214,14 @@ mod test{
         let bytes = srv.block_on(response.body()).unwrap();
         let body = str::from_utf8(&bytes).unwrap();
         let response_product: Product = serde_json::from_str(body).unwrap();
-        assert_eq!(response_product, expected_product);
+        assert_eq!(&response_product, expected_product);
     }
 
     fn update_a_product(mut srv: RefMut<TestServerRuntime>,
                           csrf_token: HeaderValue,
                           request_cookie: Cookie,
-                          id: i32,
-                          changes_to_product: NewProduct) {
+                          id: &i32,
+                          changes_to_product: &NewProduct) {
 
         let request = srv
                         .request(http::Method::PATCH, srv.url(&format!("/products/{}", id)))
@@ -237,8 +237,10 @@ mod test{
         assert!(response.status().is_success());
     }
 
-    fn products_index(mut srv: RefMut<TestServerRuntime>, csrf_token: HeaderValue, request_cookie: Cookie) {
-        use regex::Regex;
+    fn products_index(mut srv: RefMut<TestServerRuntime>,
+                          csrf_token: HeaderValue,
+                          request_cookie: Cookie,
+                      mut data_to_compare: Vec<NewProduct>) {
 
         let request = srv
                         .get("/products")
@@ -255,8 +257,9 @@ mod test{
 
         let bytes = srv.block_on(response.body()).unwrap();
         let body = str::from_utf8(&bytes).unwrap();
-        let re = Regex::new(r#"[{"id":\d*,"name":"Shoe","stock":10.4,"price":1892},{"id":\d*,"name":"Hat","stock":15.0,"price":2045},{"id":\d*,"name":"Pants","stock":25.0,"price":3025}]"#).unwrap();
-        assert!(re.is_match(body));
+        let mut response_products: Vec<Product> = serde_json::from_str(body).unwrap();
+        assert_eq!(data_to_compare.sort_by_key(|product| product.name.clone()), 
+                   response_products.sort_by_key(|product| product.name.clone()));
     }
 
 }

@@ -4,7 +4,7 @@ use diesel::PgConnection;
 #[derive(Serialize, Deserialize)]
 pub struct ProductList(pub Vec<Product>);
 
-#[derive(Queryable, Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[derive(Queryable, Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Product {
     pub id: i32,
     pub name: String,
@@ -12,7 +12,7 @@ pub struct Product {
     pub price: Option<i32>
 }
 
-#[derive(Insertable, Deserialize, Serialize, AsChangeset, Debug, Clone)]
+#[derive(Insertable, Deserialize, Serialize, AsChangeset, Debug, Clone, PartialEq)]
 #[table_name="products"]
 pub struct NewProduct {
     pub name: Option<String>,
