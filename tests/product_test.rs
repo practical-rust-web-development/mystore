@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate dotenv_codegen;
-extern crate regex;
 
 mod common;
 
@@ -30,13 +29,15 @@ mod test{
 
         create_user();
 
-        let csrf_token_header = header::HeaderName::from_lowercase(b"x-csrf-token").unwrap();
+        let csrf_token_header =
+            header::HeaderName::from_lowercase(b"x-csrf-token").unwrap();
+
         let srv = RefCell::new(TestServer::new(move || 
             HttpService::new(
                 App::new()
                     .wrap(
                         IdentityService::new(
-                            CookieIdentityPolicy::new("my very secure secret key for mystore".as_bytes())
+                            CookieIdentityPolicy::new(dotenv!("SECRET_KEY").as_bytes())
                                 .domain("localhost")
                                 .name("mystorejwt")
                                 .path("/")
@@ -57,26 +58,33 @@ mod test{
                     )
                     .data(
                         CsrfTokenGenerator::new(
-                            "0123456789abcedf0123456789abcdef0123456789abcedf0123456789abcdef".as_bytes().to_vec(),
+                            dotenv!("CSRF_TOKEN_KEY").as_bytes().to_vec(),
                             Duration::hours(1)
                         )
                     )
                     .data(establish_connection())
                     .service(
                         web::resource("/products")
-                            .route(web::get().to(::mystore_lib::handlers::products::index))
-                            .route(web::post().to(::mystore_lib::handlers::products::create))
+                            .route(web::get()
+                                .to(::mystore_lib::handlers::products::index))
+                            .route(web::post()
+                                .to(::mystore_lib::handlers::products::create))
                     )
                     .service(
                         web::resource("/products/{id}")
-                            .route(web::get().to(::mystore_lib::handlers::products::show))
-                            .route(web::delete().to(::mystore_lib::handlers::products::destroy))
-                            .route(web::patch().to(::mystore_lib::handlers::products::update))
+                            .route(web::get()
+                                .to(::mystore_lib::handlers::products::show))
+                            .route(web::delete()
+                                .to(::mystore_lib::handlers::products::destroy))
+                            .route(web::patch()
+                                .to(::mystore_lib::handlers::products::update))
                     )
                     .service(
                         web::resource("/auth")
-                            .route(web::post().to(::mystore_lib::handlers::authentication::login))
-                            .route(web::delete().to(::mystore_lib::handlers::authentication::logout))
+                            .route(web::post()
+                                .to(::mystore_lib::handlers::authentication::login))
+                            .route(web::delete()
+                                .to(::mystore_lib::handlers::authentication::logout))
                     )
 
             )
@@ -102,18 +110,41 @@ mod test{
             stock: Some(25.0),
             price: Some(3025)
         };
-        let shoe_db = create_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), &shoe);
-        let hat_db = create_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), &hat);
-        let pants_db = create_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), &pants);
-        show_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), &shoe_db.id, &shoe_db);
+        let shoe_db = create_a_product(srv.borrow_mut(),
+                                       csrf_token.clone(),
+                                       request_cookie.clone(),
+                                       &shoe);
+        let hat_db = create_a_product(srv.borrow_mut(),
+                                      csrf_token.clone(),
+                                      request_cookie.clone(),
+                                      &hat);
+        let pants_db = create_a_product(srv.borrow_mut(),
+                                        csrf_token.clone(), 
+                                        request_cookie.clone(), 
+                                        &pants);
+        show_a_product(srv.borrow_mut(), 
+                       csrf_token.clone(), 
+                       request_cookie.clone(), 
+                       &shoe_db.id, 
+                       &shoe_db);
         let updated_hat = NewProduct {
             name: Some("Hat".to_string()),
             stock: Some(30.0),
             price: Some(3025)
         };
-        update_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), &hat_db.id, &updated_hat);
-        destroy_a_product(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), &pants_db.id);
-        products_index(srv.borrow_mut(), csrf_token, request_cookie, vec![shoe, updated_hat]);
+        update_a_product(srv.borrow_mut(), 
+                         csrf_token.clone(), 
+                         request_cookie.clone(), 
+                         &hat_db.id, 
+                         &updated_hat);
+        destroy_a_product(srv.borrow_mut(), 
+                          csrf_token.clone(), 
+                          request_cookie.clone(), 
+                          &pants_db.id);
+        products_index(srv.borrow_mut(), 
+                       csrf_token, 
+                       request_cookie, 
+                       vec![shoe, updated_hat]);
     }
 
     fn login(mut srv: RefMut<TestServerRuntime>) -> (HeaderValue, Cookie) {
