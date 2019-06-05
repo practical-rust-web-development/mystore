@@ -10,7 +10,7 @@ path = "src/lib.rs"
 
 [dependencies]
 actix = "0.8"
-actix-web = "1.0.0-rc"
+actix-web = "1.0.0"
 diesel = { version = "1.0.0", features = ["postgres", "r2d2", "chrono"] }
 dotenv = "0.14.0"
 dotenv_codegen="0.14.0"
