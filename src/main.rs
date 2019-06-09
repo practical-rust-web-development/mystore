@@ -31,7 +31,7 @@ fn main() {
         )
         .wrap(
             cors::Cors::new()
-                .allowed_origin(dotenv!("ALLOWED_ORIGIN"))
+                .send_wildcard()
                 .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
                 .allowed_headers(vec![header::AUTHORIZATION,
                                       header::CONTENT_TYPE,
