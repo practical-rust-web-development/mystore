@@ -58,12 +58,20 @@ pub struct RegisterUser {
 impl RegisterUser {
     pub fn validates(self) ->
      Result<RegisterUser, MyStoreError> {
-         if self.password == self.password_confirmation {
+         let password_are_equal = self.password == self.password_confirmation;
+         let password_not_empty = self.password.len() > 0;
+         if password_are_equal && password_not_empty {
              Ok(self)
-         } else {
+         } else if !password_are_equal {
              Err(
                  MyStoreError::PasswordNotMatch(
                      "Password and Password Confirmation does not match".to_string()
+                 )
+             )
+         } else {
+             Err(
+                 MyStoreError::WrongPassword(
+                     "Wrong Password, check it is not empty".to_string()
                  )
              )
          }
