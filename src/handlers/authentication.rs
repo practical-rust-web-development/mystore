@@ -39,5 +39,5 @@ pub fn login(auth_user: web::Json<AuthUser>,
 
 pub fn logout(id: Identity) -> Result<HttpResponse, HttpResponse> {
     id.forget();
-    Ok(HttpResponse::Ok().into())
+    Ok(HttpResponse::Ok().json("success"))
 }
