@@ -5,9 +5,15 @@ use crate::handlers::LoggedUser;
 use crate::db_connection::PgPool;
 use crate::handlers::pg_pool_handler;
 
-pub fn index(_user: LoggedUser, pool: web::Data<PgPool>) -> Result<HttpResponse> {
+#[derive(Deserialize)]
+pub struct ProductSearch{ 
+    pub search: String
+}
+
+pub fn index(_user: LoggedUser, pool: web::Data<PgPool>, product_search: web::Query<ProductSearch>) -> Result<HttpResponse> {
     let pg_pool = pg_pool_handler(pool)?;
-    Ok(HttpResponse::Ok().json(ProductList::list(&pg_pool)))
+    let search = &product_search.search;
+    Ok(HttpResponse::Ok().json(ProductList::list(&pg_pool, search)))
 }
 
 use crate::models::product::NewProduct;

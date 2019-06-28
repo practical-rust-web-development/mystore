@@ -1,6 +1,6 @@
 [package]
 name = "mystore"
-version = "3.2.1"
+version = "4.0.0"
 authors = ["werner <werner_a_e@yahoo.es>"]
 edition = "2018"
 
@@ -25,6 +25,7 @@ hex = "0.3.2"
 env_logger = "0.6.1"
 log = "0.4.6"
 actix-http = "0.2.1"
+diesel_full_text_search = "1.0.1"
 
 [dev-dependencies]
 bytes = "0.4"

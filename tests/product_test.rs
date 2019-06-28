@@ -96,19 +96,22 @@ mod test{
         let shoe = NewProduct {
             name: Some("Shoe".to_string()),
             stock: Some(10.4),
-            price: Some(1892)
+            price: Some(1892),
+            description: Some("not just your regular shoes, this one will make you jump".to_string())
         };
 
         let hat = NewProduct {
             name: Some("Hat".to_string()),
             stock: Some(15.0),
-            price: Some(2045)
+            price: Some(2045),
+            description: Some("Just a regular hat".to_string())
         };
 
         let pants = NewProduct {
             name: Some("Pants".to_string()),
             stock: Some(25.0),
-            price: Some(3025)
+            price: Some(3025),
+            description: Some("beautiful black pants that will make you look thin".to_string())
         };
         let shoe_db = create_a_product(srv.borrow_mut(),
                                        csrf_token.clone(),
@@ -130,7 +133,8 @@ mod test{
         let updated_hat = NewProduct {
             name: Some("Hat".to_string()),
             stock: Some(30.0),
-            price: Some(3025)
+            price: Some(3025),
+            description: Some("A hat with particular color, a dark black shining and beautiful".to_string())
         };
         update_a_product(srv.borrow_mut(), 
                          csrf_token.clone(), 
@@ -142,9 +146,13 @@ mod test{
                           request_cookie.clone(), 
                           &pants_db.id);
         products_index(srv.borrow_mut(), 
-                       csrf_token, 
-                       request_cookie, 
-                       vec![shoe, updated_hat]);
+                       csrf_token.clone(), 
+                       request_cookie.clone(), 
+                       vec![shoe.clone(), updated_hat.clone()]);
+        search_products(srv.borrow_mut(), 
+                        csrf_token, 
+                        request_cookie, 
+                        vec![updated_hat]);
     }
 
     fn login(mut srv: RefMut<TestServerRuntime>) -> (HeaderValue, Cookie) {
@@ -293,7 +301,7 @@ mod test{
                       mut data_to_compare: Vec<NewProduct>) {
 
         let request = srv
-                        .get("/products")
+                        .get("/products?search=")
                         .header("x-csrf-token", csrf_token.to_str().unwrap())
                         .cookie(request_cookie);
 
@@ -313,4 +321,29 @@ mod test{
         assert_eq!(data_to_compare, response_products);
     }
 
+    fn search_products(mut srv: RefMut<TestServerRuntime>,
+                          csrf_token: HeaderValue,
+                          request_cookie: Cookie,
+                      mut data_to_compare: Vec<NewProduct>) {
+
+        let request = srv
+                        .get("/products?search=hats")
+                        .header("x-csrf-token", csrf_token.to_str().unwrap())
+                        .cookie(request_cookie);
+
+        let mut response = srv.block_on(request.send()).unwrap();
+        assert!(response.status().is_success());
+
+        assert_eq!(
+            response.headers().get(http::header::CONTENT_TYPE).unwrap(),
+            "application/json"
+        );
+
+        let bytes = srv.block_on(response.body()).unwrap();
+        let body = str::from_utf8(&bytes).unwrap();
+        let mut response_products: Vec<Product> = serde_json::from_str(body).unwrap();
+        data_to_compare.sort_by_key(|product| product.name.clone());
+        response_products.sort_by_key(|product| product.name.clone());
+        assert_eq!(data_to_compare, response_products);
+    }
 }

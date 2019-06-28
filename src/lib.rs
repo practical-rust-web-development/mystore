@@ -19,6 +19,7 @@ extern crate dotenv_codegen;
 extern crate env_logger;
 
 extern crate actix_http;
+extern crate diesel_full_text_search;
 
 pub mod schema;
 pub mod db_connection;
