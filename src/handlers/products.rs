@@ -10,10 +10,18 @@ pub struct ProductSearch{
     pub search: String
 }
 
-pub fn index(_user: LoggedUser, pool: web::Data<PgPool>, product_search: web::Query<ProductSearch>) -> Result<HttpResponse> {
+#[derive(Deserialize)]
+pub struct ProductPagination {
+    pub rank: f64
+}
+
+pub fn index(_user: LoggedUser,
+             pool: web::Data<PgPool>,
+             product_search: web::Query<ProductSearch>,
+             pagination: web::Query<ProductPagination>) -> Result<HttpResponse> {
     let pg_pool = pg_pool_handler(pool)?;
     let search = &product_search.search;
-    Ok(HttpResponse::Ok().json(ProductList::list(&pg_pool, search)))
+    Ok(HttpResponse::Ok().json(ProductList::list(&pg_pool, search, pagination.rank)))
 }
 
 use crate::models::product::NewProduct;

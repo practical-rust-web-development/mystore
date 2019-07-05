@@ -590,8 +590,8 @@ dependencies = [
 
 [[package]]
 name = "diesel_full_text_search"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+version = "1.2.1"
+source = "git+https://github.com/werner/diesel_full_text_search#afd9051656995816fe22c448dd632c8ea0a3cf86"
 dependencies = [
  "diesel 1.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1089,7 +1089,7 @@ dependencies = [
  "chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "csrf-token 0.2.2 (git+ssh://git@github.com/3dom-co-jp/csrf-token.git?branch=v0.2.x)",
  "diesel 1.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "diesel_full_text_search 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "diesel_full_text_search 1.2.1 (git+https://github.com/werner/diesel_full_text_search)",
  "dotenv 0.14.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "dotenv_codegen 0.14.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2017,7 +2017,7 @@ dependencies = [
 "checksum derive_more 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)" = "fbe9f11be34f800b3ecaaed0ec9ec2e015d1d0ba0c8644c1310f73d6e8994615"
 "checksum diesel 1.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "8d24935ba50c4a8dc375a0fd1f8a2ba6bdbdc4125713126a74b965d6a01a06d7"
 "checksum diesel_derives 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "62a27666098617d52c487a41f70de23d44a1dc1f3aa5877ceba2790fb1f1cab4"
-"checksum diesel_full_text_search 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "7ad3168d9d2008c58b8c9fabb79ddc38d1f9d511fa15e0dcbd6b987912b05783"
+"checksum diesel_full_text_search 1.2.1 (git+https://github.com/werner/diesel_full_text_search)" = "<none>"
 "checksum digest 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)" = "05f47366984d3ad862010e22c7ce81a7dbcaebbdfb37241a620f8b6596ee135c"
 "checksum dotenv 0.14.1 (registry+https://github.com/rust-lang/crates.io-index)" = "4424bad868b0ffe6ae351ee463526ba625bbca817978293bbe6bb7dc1804a175"
 "checksum dotenv_codegen 0.14.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ab4fd287f120272459104d467bbd98a17ff2c718e40762f9d409e480f1df6562"

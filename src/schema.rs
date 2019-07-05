@@ -11,6 +11,7 @@ table! {
         price -> Nullable<Int4>,
         description -> Nullable<VarChar>,
         text_searchable_product_col -> TsVector,
+        product_rank -> Float8,
     }
 }
 

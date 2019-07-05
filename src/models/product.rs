@@ -39,22 +39,28 @@ pub struct NewProduct {
 }
 
 impl ProductList {
-    pub fn list(connection: &PgConnection, search: &str) -> Self {
+    pub fn list(connection: &PgConnection, search: &str, rank: f64) -> Self {
         use diesel::RunQueryDsl;
+        use diesel::ExpressionMethods;
         use diesel::QueryDsl;
         use diesel::pg::Pg;
         use crate::schema::products::dsl::*;
         use crate::schema;
-        use diesel_full_text_search::{plainto_tsquery, TsVectorExtensions};
+        use diesel_full_text_search::{plainto_tsquery, TsRumExtensions, TsVectorExtensions};
 
         let mut query = schema::products::table.into_boxed::<Pg>();
 
         if !search.is_empty() {
             query = query
-                .filter(text_searchable_product_col.matches(plainto_tsquery(search)));
-        } 
+                .filter(text_searchable_product_col.matches(plainto_tsquery(search)))
+                .order((product_rank.desc(), 
+                        text_searchable_product_col.distance(plainto_tsquery(search))));
+        } else {
+            query = query.order(product_rank.desc());
+        }
         let result = query
             .select(PRODUCT_COLUMNS)
+            .filter(product_rank.le(rank))
             .limit(10)
             .load::<Product>(connection)
             .expect("Error loading products");
@@ -69,7 +75,6 @@ impl NewProduct {
 
         diesel::insert_into(products::table)
             .values(self)
-            .on_conflict_do_nothing()
             .returning(PRODUCT_COLUMNS)
             .get_result::<Product>(connection)
     }

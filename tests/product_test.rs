@@ -301,7 +301,7 @@ mod test{
                       mut data_to_compare: Vec<NewProduct>) {
 
         let request = srv
-                        .get("/products?search=")
+                        .get("/products?search=&rank=100")
                         .header("x-csrf-token", csrf_token.to_str().unwrap())
                         .cookie(request_cookie);
 
@@ -327,7 +327,7 @@ mod test{
                       mut data_to_compare: Vec<NewProduct>) {
 
         let request = srv
-                        .get("/products?search=hats")
+                        .get("/products?search=hats&rank=100")
                         .header("x-csrf-token", csrf_token.to_str().unwrap())
                         .cookie(request_cookie);
 
