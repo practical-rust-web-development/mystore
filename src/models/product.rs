@@ -10,7 +10,8 @@ pub struct Product {
     pub name: String,
     pub stock: f64,
     pub price: Option<i32>,
-    pub description: Option<String>
+    pub description: Option<String>,
+    pub user_id: i32
 }
 
 type ProductColumns = (
@@ -18,7 +19,8 @@ type ProductColumns = (
     products::name,
     products::stock,
     products::price,
-    products::description
+    products::description,
+    products::user_id
 );
 
 const PRODUCT_COLUMNS: ProductColumns = (
@@ -26,7 +28,8 @@ const PRODUCT_COLUMNS: ProductColumns = (
     products::name,
     products::stock,
     products::price,
-    products::description
+    products::description,
+    products::user_id
 );
 
 #[derive(Insertable, Deserialize, Serialize, AsChangeset, Debug, Clone, PartialEq)]
@@ -35,15 +38,17 @@ pub struct NewProduct {
     pub name: Option<String>,
     pub stock: Option<f64>,
     pub price: Option<i32>,
-    pub description: Option<String>
+    pub description: Option<String>,
+    pub user_id: Option<i32>
 }
 
 impl ProductList {
-    pub fn list(connection: &PgConnection, search: &str, rank: f64) -> Self {
+    pub fn list(param_user_id: i32, search: &str, rank: f64, connection: &PgConnection) -> Self {
         use diesel::RunQueryDsl;
         use diesel::ExpressionMethods;
         use diesel::QueryDsl;
         use diesel::pg::Pg;
+        use diesel::BoolExpressionMethods;
         use crate::schema::products::dsl::*;
         use crate::schema;
         use diesel_full_text_search::{plainto_tsquery, TsRumExtensions, TsVectorExtensions};
@@ -60,7 +65,7 @@ impl ProductList {
         }
         let result = query
             .select(PRODUCT_COLUMNS)
-            .filter(product_rank.le(rank))
+            .filter(user_id.eq(param_user_id).and(product_rank.le(rank)))
             .limit(10)
             .load::<Product>(connection)
             .expect("Error loading products");
@@ -70,41 +75,61 @@ impl ProductList {
 }
 
 impl NewProduct {
-    pub fn create(&self, connection: &PgConnection) -> Result<Product, diesel::result::Error> {
+    pub fn create(&self, param_user_id: i32, connection: &PgConnection) -> Result<Product, diesel::result::Error> {
         use diesel::RunQueryDsl;
 
+        let new_product = NewProduct {
+            user_id: Some(param_user_id),
+            ..self.clone()
+        };
+
         diesel::insert_into(products::table)
-            .values(self)
+            .values(new_product)
             .returning(PRODUCT_COLUMNS)
             .get_result::<Product>(connection)
     }
 }
 
 impl Product {
-    pub fn find(id: &i32, connection: &PgConnection) -> Result<Product, diesel::result::Error> {
+    pub fn find(product_id: &i32, param_user_id: i32, connection: &PgConnection) -> Result<Product, diesel::result::Error> {
         use diesel::QueryDsl;
         use diesel::RunQueryDsl;
+        use diesel::ExpressionMethods;
+        use crate::schema;
+        use crate::schema::products::dsl::*;
 
-        products::table.find(id).select(PRODUCT_COLUMNS).first(connection)
+        schema::products::table
+            .select(PRODUCT_COLUMNS)
+            .filter(user_id.eq(param_user_id))
+            .find(product_id)
+            .first(connection)
     }
 
-    pub fn destroy(id: &i32, connection: &PgConnection) -> Result<(), diesel::result::Error> {
+    pub fn destroy(id: &i32, param_user_id: i32, connection: &PgConnection) -> Result<(), diesel::result::Error> {
         use diesel::QueryDsl;
         use diesel::RunQueryDsl;
+        use diesel::ExpressionMethods;
         use crate::schema::products::dsl;
 
-        diesel::delete(dsl::products.find(id)).execute(connection)?;
+        diesel::delete(dsl::products.filter(dsl::user_id.eq(param_user_id)).find(id))
+            .execute(connection)?;
         Ok(())
     }
 
-    pub fn update(id: &i32, new_product: &NewProduct, connection: &PgConnection) ->
+    pub fn update(id: &i32, param_user_id: i32, new_product: &NewProduct, connection: &PgConnection) ->
      Result<(), diesel::result::Error> {
         use diesel::QueryDsl;
         use diesel::RunQueryDsl;
+        use diesel::ExpressionMethods;
         use crate::schema::products::dsl;
 
-        diesel::update(dsl::products.find(id))
-            .set(new_product)
+        let new_product_to_replace = NewProduct {
+            user_id: Some(param_user_id),
+            ..new_product.clone()
+        };
+
+        diesel::update(dsl::products.filter(dsl::user_id.eq(param_user_id)).find(id))
+            .set(new_product_to_replace)
             .execute(connection)?;
         Ok(())
     }

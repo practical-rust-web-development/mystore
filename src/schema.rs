@@ -11,7 +11,8 @@ table! {
         price -> Nullable<Int4>,
         description -> Nullable<VarChar>,
         text_searchable_product_col -> TsVector,
-        product_rank -> Float8,
+        product_rank -> Nullable<Float8>,
+        user_id -> Int4,
     }
 }
 
@@ -24,6 +25,8 @@ table! {
         created_at -> Timestamp,
     }
 }
+
+joinable!(products -> users (user_id));
 
 allow_tables_to_appear_in_same_query!(
     products,

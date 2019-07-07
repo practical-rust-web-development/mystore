@@ -23,6 +23,7 @@ mod test{
     use std::cell::{ RefCell, RefMut };
 
     use ::mystore_lib::models::product::{ Product, NewProduct };
+    use ::mystore_lib::models::user::{ NewUser, User };
 
     #[test]
     fn test() {
@@ -91,27 +92,29 @@ mod test{
         ));
 
         let (csrf_token, request_cookie) = login(srv.borrow_mut());
-        clear_products();
 
         let shoe = NewProduct {
             name: Some("Shoe".to_string()),
             stock: Some(10.4),
             price: Some(1892),
-            description: Some("not just your regular shoes, this one will make you jump".to_string())
+            description: Some("not just your regular shoes, this one will make you jump".to_string()),
+            user_id: None
         };
 
         let hat = NewProduct {
             name: Some("Hat".to_string()),
             stock: Some(15.0),
             price: Some(2045),
-            description: Some("Just a regular hat".to_string())
+            description: Some("Just a regular hat".to_string()),
+            user_id: None
         };
 
         let pants = NewProduct {
             name: Some("Pants".to_string()),
             stock: Some(25.0),
             price: Some(3025),
-            description: Some("beautiful black pants that will make you look thin".to_string())
+            description: Some("beautiful black pants that will make you look thin".to_string()),
+            user_id: None
         };
         let shoe_db = create_a_product(srv.borrow_mut(),
                                        csrf_token.clone(),
@@ -134,7 +137,8 @@ mod test{
             name: Some("Hat".to_string()),
             stock: Some(30.0),
             price: Some(3025),
-            description: Some("A hat with particular color, a dark black shining and beautiful".to_string())
+            description: Some("A hat with particular color, a dark black shining and beautiful".to_string()),
+            user_id: None
         };
         update_a_product(srv.borrow_mut(), 
                          csrf_token.clone(), 
@@ -178,15 +182,15 @@ mod test{
         (csrf_token.clone(), request_cookie.clone())
     }
 
-    fn create_user() {
+    fn create_user() -> User {
         use diesel::RunQueryDsl;
         use ::mystore_lib::schema::users;
-        use ::mystore_lib::models::user::{ NewUser, User };
         use chrono::Local;
 
         let connection = establish_connection();
         let pg_pool = connection.get().unwrap();
 
+        clear_products();
         diesel::delete(users::table).execute(&pg_pool).unwrap();
 
         diesel::insert_into(users::table)
@@ -196,7 +200,7 @@ mod test{
                 password: User::hash_password("12345678".to_string()).unwrap(),
                 created_at: Local::now().naive_local()
             })
-            .get_result::<User>(&pg_pool).unwrap();
+            .get_result::<User>(&pg_pool).unwrap()
     }
 
     fn clear_products() {

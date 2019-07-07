@@ -4,12 +4,14 @@ use actix_web::HttpResponse;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
-    sub: String,
+    sub: i32,
+    name: String,
     company: String,
     exp: usize
 }
 
 pub struct SlimUser {
+    pub id: i32,
     pub email: String,
     pub company: String
 }
@@ -17,24 +19,26 @@ pub struct SlimUser {
 impl From<Claims> for SlimUser {
     fn from(claims: Claims) -> Self {
         SlimUser {
-            email: claims.sub,
+            id: claims.sub,
+            email: claims.name,
             company: claims.company
         }
     }
 }
 
 impl Claims {
-    fn with_email(email: &str, company: &str) -> Self {
+    fn with_email(id: i32, email: &str, company: &str) -> Self {
         Claims {
-            sub: email.into(),
+            sub: id,
+            name: email.into(),
             company: company.into(),
             exp: (Local::now() + Duration::hours(24)).timestamp() as usize
         }
     }
 }
 
-pub fn create_token(email: &str, company: &str) -> Result<String, HttpResponse> {
-    let claims = Claims::with_email(email, company);
+pub fn create_token(id: i32, email: &str, company: &str) -> Result<String, HttpResponse> {
+    let claims = Claims::with_email(id, email, company);
     encode(&Header::default(), &claims, get_secret())
         .map_err(|e| HttpResponse::InternalServerError().json(e.to_string()))
 }
