@@ -30,12 +30,12 @@ pub fn index(user: LoggedUser,
 }
 
 use crate::models::product::NewProduct;
-use crate::models::price::NewPriceProduct;
+use crate::models::price::PriceProductToUpdate;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ProductWithPrices {
     pub product: NewProduct,
-    pub prices: Vec<NewPriceProduct>
+    pub prices: Vec<PriceProductToUpdate>
 }
 
 pub fn create(user: LoggedUser,
@@ -47,7 +47,7 @@ pub fn create(user: LoggedUser,
     let product = new_product_with_prices;
 
     product.product
-        .create(user.id, &product.prices, &pg_pool)
+        .create(user.id, product.clone().prices, &pg_pool)
         .map(|product| HttpResponse::Ok().json(product))
         .map_err(|e| {
             actix_web::error::ErrorInternalServerError(e)
@@ -74,9 +74,14 @@ pub fn destroy(user: LoggedUser, id: web::Path<i32>, pool: web::Data<PgPool>) ->
         })
 }
 
-pub fn update(user: LoggedUser, id: web::Path<i32>, new_product: web::Json<NewProduct>, pool: web::Data<PgPool>) -> Result<HttpResponse> {
+pub fn update(user: LoggedUser,
+              id: web::Path<i32>,
+              new_product: web::Json<ProductWithPrices>,
+              pool: web::Data<PgPool>) -> Result<HttpResponse> {
     let pg_pool = pg_pool_handler(pool)?;
-    Product::update(&id, user.id, &new_product, &pg_pool)
+    let product_id = *id;
+    let product = new_product.clone();
+    Product::update(product_id, user.id, product.product, product.prices, &pg_pool)
         .map(|_| HttpResponse::Ok().json(()))
         .map_err(|e| {
             actix_web::error::ErrorInternalServerError(e)

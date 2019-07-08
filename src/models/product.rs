@@ -92,10 +92,10 @@ impl ProductList {
     }
 }
 
-use crate::models::price::NewPriceProduct;
+use crate::models::price::PriceProductToUpdate;
 
 impl NewProduct {
-    pub fn create(&self, param_user_id: i32, prices: &Vec<NewPriceProduct>, connection: &PgConnection) ->
+    pub fn create(&self, param_user_id: i32, prices: Vec<PriceProductToUpdate>, connection: &PgConnection) ->
         Result<Product, diesel::result::Error> {
             use diesel::RunQueryDsl;
 
@@ -104,10 +104,19 @@ impl NewProduct {
                 ..self.clone()
             };
 
-            diesel::insert_into(products::table)
-                .values(new_product)
-                .returning(PRODUCT_COLUMNS)
-                .get_result::<Product>(connection)
+            let product = 
+                diesel::insert_into(products::table)
+                    .values(new_product)
+                    .returning(PRODUCT_COLUMNS)
+                    .get_result::<Product>(connection)?;
+
+            PriceProductToUpdate::batch_update(
+                prices,
+                product.id,
+                param_user_id,
+                connection)?;
+
+            Ok(product)
         }
 }
 
@@ -146,7 +155,7 @@ impl Product {
         Ok(())
     }
 
-    pub fn update(id: &i32, param_user_id: i32, new_product: &NewProduct, connection: &PgConnection) ->
+    pub fn update(id: i32, param_user_id: i32, new_product: NewProduct, prices: Vec<PriceProductToUpdate>, connection: &PgConnection) ->
      Result<(), diesel::result::Error> {
         use diesel::QueryDsl;
         use diesel::RunQueryDsl;
@@ -161,6 +170,13 @@ impl Product {
         diesel::update(dsl::products.filter(dsl::user_id.eq(param_user_id)).find(id))
             .set(new_product_to_replace)
             .execute(connection)?;
+
+        PriceProductToUpdate::batch_update(
+            prices,
+            id,
+            param_user_id,
+            connection)?;
+
         Ok(())
     }
 }

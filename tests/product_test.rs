@@ -192,7 +192,6 @@ mod test{
         let connection = establish_connection();
         let pg_pool = connection.get().unwrap();
 
-        clear_products();
         diesel::delete(users::table).execute(&pg_pool).unwrap();
 
         diesel::insert_into(users::table)
@@ -282,10 +281,17 @@ mod test{
                         .cookie(request_cookie)
                         .timeout(std_duration::from_secs(600));
 
-        let response =
+        let product_with_prices =
+            ProductWithPrices {
+                product: changes_to_product.clone(),
+                prices: vec![]
+            };
+
+        let mut response =
             srv
-                .block_on(request.send_body(json!(changes_to_product).to_string()))
+                .block_on(request.send_body(json!(product_with_prices).to_string()))
                 .unwrap();
+
         assert!(response.status().is_success());
     }
 

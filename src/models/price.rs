@@ -34,11 +34,12 @@ pub struct PriceProduct {
 pub struct NewPriceProduct {
     pub id: Option<i32>,
     pub price_id: i32,
-    pub product_id: i32,
+    pub product_id: Option<i32>,
     pub user_id: Option<i32>,
     pub amount: Option<i32>
 }
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct PriceProductToUpdate {
     pub price_product: NewPriceProduct,
     pub to_delete: bool
@@ -47,7 +48,7 @@ pub struct PriceProductToUpdate {
 use diesel::PgConnection;
 
 impl PriceProductToUpdate {
-    pub fn batch_update(records: Vec<Self>, param_user_id: i32, connection: &PgConnection) ->
+    pub fn batch_update(records: Vec<Self>, param_product_id: i32, param_user_id: i32, connection: &PgConnection) ->
         Result<Vec<PriceProduct>, diesel::result::Error> {
             use diesel::QueryDsl;
             use diesel::RunQueryDsl;
@@ -78,6 +79,7 @@ impl PriceProductToUpdate {
 
                         let new_price_product = NewPriceProduct {
                             user_id: Some(param_user_id),
+                            product_id: Some(param_product_id),
                             ..price_product.clone().price_product
                         };
 
