@@ -22,8 +22,10 @@ mod test{
     use crate::common::db_connection::establish_connection;
     use std::cell::{ RefCell, RefMut };
 
-    use ::mystore_lib::models::product::{ Product, NewProduct };
+    use ::mystore_lib::models::product::{ Product, NewProduct, ProductList };
     use ::mystore_lib::models::user::{ NewUser, User };
+    use ::mystore_lib::models::price::{ Price, PriceProduct };
+    use ::mystore_lib::handlers::products::ProductWithPrices;
 
     #[test]
     fn test() {
@@ -224,9 +226,15 @@ mod test{
                           .cookie(request_cookie)
                           .timeout(std_duration::from_secs(600));
 
+        let product_with_prices =
+            ProductWithPrices {
+                product: product.clone(),
+                prices: vec![]
+            };
+
         let mut response =
             srv
-                .block_on(request.send_body(json!(product).to_string()))
+                .block_on(request.send_body(json!(product_with_prices).to_string()))
                 .unwrap();
 
         assert!(response.status().is_success());
@@ -257,8 +265,8 @@ mod test{
 
         let bytes = srv.block_on(response.body()).unwrap();
         let body = str::from_utf8(&bytes).unwrap();
-        let response_product: Product = serde_json::from_str(body).unwrap();
-        assert_eq!(&response_product, expected_product);
+        let response_product: (Product, Vec<(PriceProduct, Price)>) = serde_json::from_str(body).unwrap();
+        assert_eq!(response_product, (expected_product.clone(), vec![]));
     }
 
     fn update_a_product(mut srv: RefMut<TestServerRuntime>,
@@ -319,10 +327,16 @@ mod test{
 
         let bytes = srv.block_on(response.body()).unwrap();
         let body = str::from_utf8(&bytes).unwrap();
-        let mut response_products: Vec<Product> = serde_json::from_str(body).unwrap();
+        let mut response_products: ProductList = serde_json::from_str(body).unwrap();
         data_to_compare.sort_by_key(|product| product.name.clone());
-        response_products.sort_by_key(|product| product.name.clone());
-        assert_eq!(data_to_compare, response_products);
+        response_products.0.sort_by_key(|product| product.0.name.clone());
+        let products: Vec<Product> =
+            response_products
+            .0
+            .iter()
+            .map (|product| product.0.clone())
+            .collect();
+        assert_eq!(data_to_compare, products);
     }
 
     fn search_products(mut srv: RefMut<TestServerRuntime>,
@@ -345,9 +359,15 @@ mod test{
 
         let bytes = srv.block_on(response.body()).unwrap();
         let body = str::from_utf8(&bytes).unwrap();
-        let mut response_products: Vec<Product> = serde_json::from_str(body).unwrap();
+        let mut response_products: ProductList = serde_json::from_str(body).unwrap();
         data_to_compare.sort_by_key(|product| product.name.clone());
-        response_products.sort_by_key(|product| product.name.clone());
-        assert_eq!(data_to_compare, response_products);
+        response_products.0.sort_by_key(|product| product.0.name.clone());
+        let products: Vec<Product> =
+            response_products
+            .0
+            .iter()
+            .map (|product| product.0.clone())
+            .collect();
+        assert_eq!(data_to_compare, products);
     }
 }
