@@ -96,7 +96,7 @@ mod test{
         let shoe = NewProduct {
             name: Some("Shoe".to_string()),
             stock: Some(10.4),
-            price: Some(1892),
+            cost: Some(1892),
             description: Some("not just your regular shoes, this one will make you jump".to_string()),
             user_id: None
         };
@@ -104,7 +104,7 @@ mod test{
         let hat = NewProduct {
             name: Some("Hat".to_string()),
             stock: Some(15.0),
-            price: Some(2045),
+            cost: Some(2045),
             description: Some("Just a regular hat".to_string()),
             user_id: None
         };
@@ -112,7 +112,7 @@ mod test{
         let pants = NewProduct {
             name: Some("Pants".to_string()),
             stock: Some(25.0),
-            price: Some(3025),
+            cost: Some(3025),
             description: Some("beautiful black pants that will make you look thin".to_string()),
             user_id: None
         };
@@ -136,7 +136,7 @@ mod test{
         let updated_hat = NewProduct {
             name: Some("Hat".to_string()),
             stock: Some(30.0),
-            price: Some(3025),
+            cost: Some(3025),
             description: Some("A hat with particular color, a dark black shining and beautiful".to_string()),
             user_id: None
         };

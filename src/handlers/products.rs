@@ -21,17 +21,26 @@ pub fn index(user: LoggedUser,
              pagination: web::Query<ProductPagination>) -> Result<HttpResponse> {
     let pg_pool = pg_pool_handler(pool)?;
     let search = &product_search.search;
-    Ok(HttpResponse::Ok().json(ProductList::list(user.id, search, pagination.rank, &pg_pool)))
+
+    ProductList::list(user.id, search, pagination.rank, &pg_pool)
+        .map(|products| HttpResponse::Ok().json(products))
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(e)
+        })
 }
 
 use crate::models::product::NewProduct;
+use crate::models::price::NewPriceProduct;
 
-pub fn create(user: LoggedUser, new_product: web::Json<NewProduct>, pool: web::Data<PgPool>) ->
+pub fn create(user: LoggedUser,
+              new_product: web::Json<NewProduct>,
+              prices: web::Json<Vec<NewPriceProduct>>,
+              pool: web::Data<PgPool>) ->
  Result<HttpResponse> {
     let pg_pool = pg_pool_handler(pool)?;
 
     new_product
-        .create(user.id, &pg_pool)
+        .create(user.id, &prices, &pg_pool)
         .map(|product| HttpResponse::Ok().json(product))
         .map_err(|e| {
             actix_web::error::ErrorInternalServerError(e)

@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate dotenv_codegen;
+#[macro_use]
+extern crate itertools;
 
 use actix_web::{App, HttpServer, web};
 use actix_web::middleware::identity::{CookieIdentityPolicy, IdentityService};
