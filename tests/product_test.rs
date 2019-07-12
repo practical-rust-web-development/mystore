@@ -24,7 +24,7 @@ mod test{
 
     use ::mystore_lib::models::product::{ Product, NewProduct, ProductList };
     use ::mystore_lib::models::user::{ NewUser, User };
-    use ::mystore_lib::models::price::{ Price, PriceProduct };
+    use ::mystore_lib::models::price::{ Price, PriceProduct, PriceProductToUpdate, NewPriceProduct, NewPrice };
     use ::mystore_lib::handlers::products::ProductWithPrices;
 
     #[test]
@@ -83,6 +83,13 @@ mod test{
                                 .to(::mystore_lib::handlers::products::update))
                     )
                     .service(
+                        web::resource("/prices")
+                            .route(web::get()
+                                .to(::mystore_lib::handlers::prices::index))
+                            .route(web::post()
+                                .to(::mystore_lib::handlers::prices::create))
+                    )
+                    .service(
                         web::resource("/auth")
                             .route(web::post()
                                 .to(::mystore_lib::handlers::authentication::login))
@@ -118,23 +125,43 @@ mod test{
             description: Some("beautiful black pants that will make you look thin".to_string()),
             user_id: None
         };
+
+        let new_price_discount = NewPrice { name: Some("Discount".to_string()), user_id: None };
+        let new_price_normal = NewPrice { name: Some("Normal".to_string()), user_id: None };
+
+        let price_discount = create_a_price(srv.borrow_mut(),
+                                            csrf_token.clone(),
+                                            request_cookie.clone(),
+                                            &new_price_discount);
+        let price_normal = create_a_price(srv.borrow_mut(),
+                                          csrf_token.clone(),
+                                          request_cookie.clone(),
+                                          &new_price_normal);
+
         let shoe_db = create_a_product(srv.borrow_mut(),
                                        csrf_token.clone(),
                                        request_cookie.clone(),
-                                       &shoe);
+                                       &shoe,
+                                       vec![&price_discount, &price_normal]);
+
         let hat_db = create_a_product(srv.borrow_mut(),
                                       csrf_token.clone(),
                                       request_cookie.clone(),
-                                      &hat);
+                                      &hat,
+                                      vec![&price_discount, &price_normal]);
+
         let pants_db = create_a_product(srv.borrow_mut(),
                                         csrf_token.clone(), 
                                         request_cookie.clone(), 
-                                        &pants);
+                                        &pants,
+                                        vec![&price_discount, &price_normal]);
+
         show_a_product(srv.borrow_mut(), 
                        csrf_token.clone(), 
                        request_cookie.clone(), 
-                       &shoe_db.id, 
-                       &shoe_db);
+                       &shoe_db.0.id, 
+                       &shoe_db.0,
+                       shoe_db.clone().1);
         let updated_hat = NewProduct {
             name: Some("Hat".to_string()),
             stock: Some(30.0),
@@ -145,12 +172,12 @@ mod test{
         update_a_product(srv.borrow_mut(), 
                          csrf_token.clone(), 
                          request_cookie.clone(), 
-                         &hat_db.id, 
+                         &hat_db.0.id, 
                          &updated_hat);
         destroy_a_product(srv.borrow_mut(), 
                           csrf_token.clone(), 
                           request_cookie.clone(), 
-                          &pants_db.id);
+                          &pants_db.0.id);
         products_index(srv.borrow_mut(), 
                        csrf_token.clone(), 
                        request_cookie.clone(), 
@@ -204,19 +231,38 @@ mod test{
             .get_result::<User>(&pg_pool).unwrap()
     }
 
-    fn clear_products() {
-        use diesel::RunQueryDsl;
-        use ::mystore_lib::schema::products;
-
-        let connection = establish_connection();
-        let pg_pool = connection.get().unwrap();
-        diesel::delete(products::table).execute(&pg_pool).unwrap();
-    }
-
     fn create_a_product(mut srv: RefMut<TestServerRuntime>,
                             csrf_token: HeaderValue,
                             request_cookie: Cookie,
-                            product: &NewProduct) -> Product {
+                            product: &NewProduct,
+                            prices: Vec<&Price>) -> (Product, Vec<PriceProduct>) {
+
+        let product_with_prices =
+            ProductWithPrices {
+                product: product.clone(),
+                prices: vec![
+                    PriceProductToUpdate {
+                        price_product: NewPriceProduct { 
+                            id: None,
+                            price_id: prices.get(0).unwrap().id,  
+                            product_id: None,
+                            user_id: None,
+                            amount: Some(4590)
+                        },
+                        to_delete: false
+                    },
+                    PriceProductToUpdate {
+                        price_product: NewPriceProduct { 
+                            id: None,
+                            price_id: prices.get(1).unwrap().id,  
+                            product_id: None,
+                            user_id: None,
+                            amount: Some(8709)
+                        },
+                        to_delete: false
+                    }
+                ]
+            };
 
         let request = srv
                           .post("/products")
@@ -224,12 +270,6 @@ mod test{
                           .header("x-csrf-token", csrf_token.to_str().unwrap())
                           .cookie(request_cookie)
                           .timeout(std_duration::from_secs(600));
-
-        let product_with_prices =
-            ProductWithPrices {
-                product: product.clone(),
-                prices: vec![]
-            };
 
         let mut response =
             srv
@@ -247,7 +287,8 @@ mod test{
                           csrf_token: HeaderValue,
                           request_cookie: Cookie,
                           id: &i32,
-                          expected_product: &Product) {
+                          expected_product: &Product,
+                          prices: Vec<PriceProduct>) {
 
         let request = srv
                         .get(format!("/products/{}", id))
@@ -264,8 +305,8 @@ mod test{
 
         let bytes = srv.block_on(response.body()).unwrap();
         let body = str::from_utf8(&bytes).unwrap();
-        let response_product: (Product, Vec<(PriceProduct, Price)>) = serde_json::from_str(body).unwrap();
-        assert_eq!(response_product, (expected_product.clone(), vec![]));
+        let response_product: (Product, Vec<PriceProduct>) = serde_json::from_str(body).unwrap();
+        assert_eq!(response_product, (expected_product.clone(), prices));
     }
 
     fn update_a_product(mut srv: RefMut<TestServerRuntime>,
@@ -287,7 +328,7 @@ mod test{
                 prices: vec![]
             };
 
-        let mut response =
+        let response =
             srv
                 .block_on(request.send_body(json!(product_with_prices).to_string()))
                 .unwrap();
@@ -375,5 +416,29 @@ mod test{
             .map (|product| product.0.clone())
             .collect();
         assert_eq!(data_to_compare, products);
+    }
+
+    fn create_a_price(mut srv: RefMut<TestServerRuntime>,
+                          csrf_token: HeaderValue,
+                          request_cookie: Cookie,
+                          price: &NewPrice) -> Price {
+
+        let request = srv
+                          .post("/prices")
+                          .header(header::CONTENT_TYPE, "application/json")
+                          .header("x-csrf-token", csrf_token.to_str().unwrap())
+                          .cookie(request_cookie)
+                          .timeout(std_duration::from_secs(600));
+
+        let mut response =
+            srv
+                .block_on(request.send_body(json!(price).to_string()))
+                .unwrap();
+
+        assert!(response.status().is_success());
+
+        let bytes = srv.block_on(response.body()).unwrap();
+        let body = str::from_utf8(&bytes).unwrap();
+        serde_json::from_str(body).unwrap()
     }
 }

@@ -61,6 +61,11 @@ fn main() {
                 .route(web::patch().to(::mystore_lib::handlers::products::update))
         )
         .service(
+            web::resource("/prices")
+                .route(web::get().to(::mystore_lib::handlers::prices::index))
+                .route(web::post().to(::mystore_lib::handlers::prices::create))
+        )
+        .service(
             web::resource("/register")
                 .route(web::post().to(::mystore_lib::handlers::register::register))
         )

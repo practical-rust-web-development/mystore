@@ -96,7 +96,7 @@ use crate::models::price::PriceProductToUpdate;
 
 impl NewProduct {
     pub fn create(&self, param_user_id: i32, prices: Vec<PriceProductToUpdate>, connection: &PgConnection) ->
-        Result<Product, diesel::result::Error> {
+        Result<(Product, Vec<PriceProduct>), diesel::result::Error> {
             use diesel::RunQueryDsl;
 
             let new_product = NewProduct {
@@ -110,19 +110,20 @@ impl NewProduct {
                     .returning(PRODUCT_COLUMNS)
                     .get_result::<Product>(connection)?;
 
-            PriceProductToUpdate::batch_update(
-                prices,
-                product.id,
-                param_user_id,
-                connection)?;
+            let price_products = 
+                PriceProductToUpdate::batch_update(
+                    prices,
+                    product.id,
+                    param_user_id,
+                    connection)?;
 
-            Ok(product)
+            Ok((product, price_products))
         }
 }
 
 impl Product {
     pub fn find(product_id: &i32, param_user_id: i32, connection: &PgConnection) -> 
-        Result<(Product, Vec<(PriceProduct, Price)>), diesel::result::Error> {
+        Result<(Product, Vec<PriceProduct>), diesel::result::Error> {
             use diesel::QueryDsl;
             use diesel::RunQueryDsl;
             use diesel::ExpressionMethods;
@@ -136,10 +137,9 @@ impl Product {
                     .find(product_id)
                     .first(connection)?;
             
-            let products_with_prices: Vec<(PriceProduct, Price)> =
+            let products_with_prices =
                 PriceProduct::belonging_to(&product)
-                    .inner_join(schema::prices::table)
-                    .load::<(PriceProduct, Price)>(connection)?;
+                    .load::<PriceProduct>(connection)?;
 
             Ok((product, products_with_prices))
     }
