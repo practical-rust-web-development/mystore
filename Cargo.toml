@@ -1,6 +1,6 @@
 [package]
 name = "mystore"
-version = "5.0.0"
+version = "6.0.0"
 authors = ["werner <werner_a_e@yahoo.es>"]
 edition = "2018"
 
