@@ -15,22 +15,39 @@ pub struct ProductPagination {
     pub rank: f64
 }
 
-pub fn index(_user: LoggedUser,
+pub fn index(user: LoggedUser,
              pool: web::Data<PgPool>,
              product_search: web::Query<ProductSearch>,
              pagination: web::Query<ProductPagination>) -> Result<HttpResponse> {
     let pg_pool = pg_pool_handler(pool)?;
     let search = &product_search.search;
-    Ok(HttpResponse::Ok().json(ProductList::list(&pg_pool, search, pagination.rank)))
+
+    ProductList::list(user.id, search, pagination.rank, &pg_pool)
+        .map(|products| HttpResponse::Ok().json(products))
+        .map_err(|e| {
+            actix_web::error::ErrorInternalServerError(e)
+        })
 }
 
 use crate::models::product::NewProduct;
+use crate::models::price::PriceProductToUpdate;
 
-pub fn create(_user: LoggedUser, new_product: web::Json<NewProduct>, pool: web::Data<PgPool>) ->
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ProductWithPrices {
+    pub product: NewProduct,
+    pub prices: Vec<PriceProductToUpdate>
+}
+
+pub fn create(user: LoggedUser,
+              new_product_with_prices: web::Json<ProductWithPrices>,
+              pool: web::Data<PgPool>) ->
  Result<HttpResponse> {
     let pg_pool = pg_pool_handler(pool)?;
-    new_product
-        .create(&pg_pool)
+
+    let product = new_product_with_prices;
+
+    product.product
+        .create(user.id, product.clone().prices, &pg_pool)
         .map(|product| HttpResponse::Ok().json(product))
         .map_err(|e| {
             actix_web::error::ErrorInternalServerError(e)
@@ -39,27 +56,32 @@ pub fn create(_user: LoggedUser, new_product: web::Json<NewProduct>, pool: web::
 
 use crate::models::product::Product;
 
-pub fn show(_user: LoggedUser, id: web::Path<i32>, pool: web::Data<PgPool>) -> Result<HttpResponse> {
+pub fn show(user: LoggedUser, id: web::Path<i32>, pool: web::Data<PgPool>) -> Result<HttpResponse> {
     let pg_pool = pg_pool_handler(pool)?;
-    Product::find(&id, &pg_pool)
+    Product::find(&id, user.id, &pg_pool)
         .map(|product| HttpResponse::Ok().json(product))
         .map_err(|e| {
             actix_web::error::ErrorInternalServerError(e)
         })
 }
 
-pub fn destroy(_user: LoggedUser, id: web::Path<i32>, pool: web::Data<PgPool>) -> Result<HttpResponse> {
+pub fn destroy(user: LoggedUser, id: web::Path<i32>, pool: web::Data<PgPool>) -> Result<HttpResponse> {
     let pg_pool = pg_pool_handler(pool)?;
-    Product::destroy(&id, &pg_pool)
+    Product::destroy(&id, user.id, &pg_pool)
         .map(|_| HttpResponse::Ok().json(()))
         .map_err(|e| {
             actix_web::error::ErrorInternalServerError(e)
         })
 }
 
-pub fn update(_user: LoggedUser, id: web::Path<i32>, new_product: web::Json<NewProduct>, pool: web::Data<PgPool>) -> Result<HttpResponse> {
+pub fn update(user: LoggedUser,
+              id: web::Path<i32>,
+              new_product: web::Json<ProductWithPrices>,
+              pool: web::Data<PgPool>) -> Result<HttpResponse> {
     let pg_pool = pg_pool_handler(pool)?;
-    Product::update(&id, &new_product, &pg_pool)
+    let product_id = *id;
+    let product = new_product.clone();
+    Product::update(product_id, user.id, product.product, product.prices, &pg_pool)
         .map(|_| HttpResponse::Ok().json(()))
         .map_err(|e| {
             actix_web::error::ErrorInternalServerError(e)

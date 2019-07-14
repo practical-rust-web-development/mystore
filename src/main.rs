@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate dotenv_codegen;
+#[macro_use]
+extern crate itertools;
 
 use actix_web::{App, HttpServer, web};
 use actix_web::middleware::identity::{CookieIdentityPolicy, IdentityService};
@@ -57,6 +59,11 @@ fn main() {
                 .route(web::get().to(::mystore_lib::handlers::products::show))
                 .route(web::delete().to(::mystore_lib::handlers::products::destroy))
                 .route(web::patch().to(::mystore_lib::handlers::products::update))
+        )
+        .service(
+            web::resource("/prices")
+                .route(web::get().to(::mystore_lib::handlers::prices::index))
+                .route(web::post().to(::mystore_lib::handlers::prices::create))
         )
         .service(
             web::resource("/register")
