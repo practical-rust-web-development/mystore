@@ -7,7 +7,8 @@ pub enum MyStoreError {
     HashError(BcryptError),
     DBError(result::Error),
     PasswordNotMatch(String),
-    WrongPassword(String)
+    WrongPassword(String),
+    PGConnectionError
 }
 
 impl From<BcryptError> for MyStoreError {
@@ -28,7 +29,8 @@ impl fmt::Display for MyStoreError {
             MyStoreError::HashError(error) => write!(f, "{}", error),
             MyStoreError::DBError(error) => write!(f, "{}", error),
             MyStoreError::PasswordNotMatch(error) => write!(f, "{}", error),
-            MyStoreError::WrongPassword(error) => write!(f, "{}", error)
+            MyStoreError::WrongPassword(error) => write!(f, "{}", error),
+            MyStoreError::PGConnectionError => write!(f, "error obtaining a db connection")
         }
     }
 }

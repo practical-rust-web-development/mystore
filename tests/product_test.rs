@@ -69,18 +69,18 @@ mod test{
                     .service(
                         web::resource("/products")
                             .route(web::get()
-                                .to(::mystore_lib::handlers::products::index))
+                                .to_async(::mystore_lib::handlers::products::index))
                             .route(web::post()
-                                .to(::mystore_lib::handlers::products::create))
+                                .to_async(::mystore_lib::handlers::products::create))
                     )
                     .service(
                         web::resource("/products/{id}")
                             .route(web::get()
-                                .to(::mystore_lib::handlers::products::show))
+                                .to_async(::mystore_lib::handlers::products::show))
                             .route(web::delete()
-                                .to(::mystore_lib::handlers::products::destroy))
+                                .to_async(::mystore_lib::handlers::products::destroy))
                             .route(web::patch()
-                                .to(::mystore_lib::handlers::products::update))
+                                .to_async(::mystore_lib::handlers::products::update))
                     )
                     .service(
                         web::resource("/prices")

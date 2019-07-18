@@ -46,9 +46,11 @@ pub struct NewProduct {
     pub user_id: Option<i32>
 }
 
+use crate::errors::MyStoreError;
+
 impl ProductList {
     pub fn list(param_user_id: i32, search: &str, rank: f64, connection: &PgConnection) ->
-        Result<Self, diesel::result::Error> {
+        Result<Self, MyStoreError> {
             use diesel::RunQueryDsl;
             use diesel::ExpressionMethods;
             use diesel::QueryDsl;
@@ -96,7 +98,7 @@ use crate::models::price::PriceProductToUpdate;
 
 impl NewProduct {
     pub fn create(&self, param_user_id: i32, prices: Vec<PriceProductToUpdate>, connection: &PgConnection) ->
-        Result<(Product, Vec<PriceProduct>), diesel::result::Error> {
+        Result<(Product, Vec<PriceProduct>), MyStoreError> {
             use diesel::RunQueryDsl;
 
             let new_product = NewProduct {
@@ -122,8 +124,8 @@ impl NewProduct {
 }
 
 impl Product {
-    pub fn find(product_id: &i32, param_user_id: i32, connection: &PgConnection) -> 
-        Result<(Product, Vec<PriceProduct>), diesel::result::Error> {
+    pub fn find(product_id: &i32, param_user_id: i32, connection: &PgConnection)
+        -> Result<(Product, Vec<PriceProduct>), MyStoreError> {
             use diesel::QueryDsl;
             use diesel::RunQueryDsl;
             use diesel::ExpressionMethods;
@@ -144,40 +146,41 @@ impl Product {
             Ok((product, products_with_prices))
     }
 
-    pub fn destroy(id: &i32, param_user_id: i32, connection: &PgConnection) -> Result<(), diesel::result::Error> {
-        use diesel::QueryDsl;
-        use diesel::RunQueryDsl;
-        use diesel::ExpressionMethods;
-        use crate::schema::products::dsl;
+    pub fn destroy(id: &i32, param_user_id: i32, connection: &PgConnection) 
+        -> Result<(), MyStoreError> {
+            use diesel::QueryDsl;
+            use diesel::RunQueryDsl;
+            use diesel::ExpressionMethods;
+            use crate::schema::products::dsl;
 
-        diesel::delete(dsl::products.filter(dsl::user_id.eq(param_user_id)).find(id))
-            .execute(connection)?;
-        Ok(())
+            diesel::delete(dsl::products.filter(dsl::user_id.eq(param_user_id)).find(id))
+                .execute(connection)?;
+            Ok(())
     }
 
-    pub fn update(id: i32, param_user_id: i32, new_product: NewProduct, prices: Vec<PriceProductToUpdate>, connection: &PgConnection) ->
-     Result<(), diesel::result::Error> {
-        use diesel::QueryDsl;
-        use diesel::RunQueryDsl;
-        use diesel::ExpressionMethods;
-        use crate::schema::products::dsl;
+    pub fn update(id: i32, param_user_id: i32, new_product: NewProduct, prices: Vec<PriceProductToUpdate>, connection: &PgConnection) 
+        -> Result<(), MyStoreError> {
+            use diesel::QueryDsl;
+            use diesel::RunQueryDsl;
+            use diesel::ExpressionMethods;
+            use crate::schema::products::dsl;
 
-        let new_product_to_replace = NewProduct {
-            user_id: Some(param_user_id),
-            ..new_product.clone()
-        };
+            let new_product_to_replace = NewProduct {
+                user_id: Some(param_user_id),
+                ..new_product.clone()
+            };
 
-        diesel::update(dsl::products.filter(dsl::user_id.eq(param_user_id)).find(id))
-            .set(new_product_to_replace)
-            .execute(connection)?;
+            diesel::update(dsl::products.filter(dsl::user_id.eq(param_user_id)).find(id))
+                .set(new_product_to_replace)
+                .execute(connection)?;
 
-        PriceProductToUpdate::batch_update(
-            prices,
-            id,
-            param_user_id,
-            connection)?;
+            PriceProductToUpdate::batch_update(
+                prices,
+                id,
+                param_user_id,
+                connection)?;
 
-        Ok(())
+            Ok(())
     }
 }
 

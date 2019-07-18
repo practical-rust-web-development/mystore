@@ -51,14 +51,14 @@ fn main() {
         .data(establish_connection())
         .service(
             web::resource("/products")
-                .route(web::get().to(::mystore_lib::handlers::products::index))
-                .route(web::post().to(::mystore_lib::handlers::products::create))
+                .route(web::get().to_async(::mystore_lib::handlers::products::index))
+                .route(web::post().to_async(::mystore_lib::handlers::products::create))
         )
         .service(
             web::resource("/products/{id}")
-                .route(web::get().to(::mystore_lib::handlers::products::show))
-                .route(web::delete().to(::mystore_lib::handlers::products::destroy))
-                .route(web::patch().to(::mystore_lib::handlers::products::update))
+                .route(web::get().to_async(::mystore_lib::handlers::products::show))
+                .route(web::delete().to_async(::mystore_lib::handlers::products::destroy))
+                .route(web::patch().to_async(::mystore_lib::handlers::products::update))
         )
         .service(
             web::resource("/prices")
