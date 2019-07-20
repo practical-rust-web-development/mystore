@@ -109,9 +109,11 @@ impl PriceProductToUpdate {
         }
 }
 
+use crate::errors::MyStoreError;
+
 impl PriceList {
     pub fn list(param_user_id: i32, connection: &PgConnection) ->
-        Result<Self, diesel::result::Error> {
+        Result<Self, MyStoreError> {
             use diesel::ExpressionMethods;
             use diesel::QueryDsl;
             use diesel::RunQueryDsl;
@@ -124,7 +126,7 @@ impl PriceList {
 
 impl NewPrice {
     pub fn create(&self, param_user_id: i32, connection: &PgConnection) ->
-        Result<Price, diesel::result::Error> {
+        Result<Price, MyStoreError> {
             use diesel::RunQueryDsl;
 
             let new_price = NewPrice {
@@ -132,36 +134,40 @@ impl NewPrice {
                 ..self.clone()
             };
 
-            diesel::insert_into(prices::table)
+            Ok(diesel::insert_into(prices::table)
                 .values(new_price)
                 .returning((id, name, user_id))
-                .get_result::<Price>(connection)
+                .get_result::<Price>(connection)?)
 
         }
 }
 
 impl Price {
     pub fn find(price_id: &i32, param_user_id: i32, connection: &PgConnection) -> 
-        Result<Price, diesel::result::Error> {
+        Result<Price, MyStoreError> {
             use diesel::QueryDsl;
             use diesel::RunQueryDsl;
             use diesel::ExpressionMethods;
 
-            prices.filter(user_id.eq(param_user_id)).find(price_id).first(connection)
+            Ok(prices
+                .filter(user_id.eq(param_user_id))
+                .find(price_id)
+                .first(connection)?)
     }
 
-    pub fn destroy(price_id: &i32, param_user_id: i32, connection: &PgConnection) -> Result<(), diesel::result::Error> {
-        use diesel::QueryDsl;
-        use diesel::RunQueryDsl;
-        use diesel::ExpressionMethods;
+    pub fn destroy(price_id: &i32, param_user_id: i32, connection: &PgConnection) 
+        -> Result<(), MyStoreError> {
+            use diesel::QueryDsl;
+            use diesel::RunQueryDsl;
+            use diesel::ExpressionMethods;
 
-        diesel::delete(prices.filter(user_id.eq(param_user_id)).find(price_id))
-            .execute(connection)?;
-        Ok(())
+            diesel::delete(prices.filter(user_id.eq(param_user_id)).find(price_id))
+                .execute(connection)?;
+            Ok(())
     }
 
-    pub fn update(price_id: i32, param_user_id: i32, new_price: NewPrice, connection: &PgConnection) ->
-        Result<(), diesel::result::Error> {
+    pub fn update(price_id: i32, param_user_id: i32, new_price: NewPrice, connection: &PgConnection) 
+        -> Result<(), MyStoreError> {
             use diesel::QueryDsl;
             use diesel::RunQueryDsl;
             use diesel::ExpressionMethods;

@@ -62,17 +62,17 @@ fn main() {
         )
         .service(
             web::resource("/prices")
-                .route(web::get().to(::mystore_lib::handlers::prices::index))
-                .route(web::post().to(::mystore_lib::handlers::prices::create))
+                .route(web::get().to_async(::mystore_lib::handlers::prices::index))
+                .route(web::post().to_async(::mystore_lib::handlers::prices::create))
         )
         .service(
             web::resource("/register")
-                .route(web::post().to(::mystore_lib::handlers::register::register))
+                .route(web::post().to_async(::mystore_lib::handlers::register::register))
         )
         .service(
             web::resource("/auth")
-                .route(web::post().to(::mystore_lib::handlers::authentication::login))
-                .route(web::delete().to(::mystore_lib::handlers::authentication::logout))
+                .route(web::post().to_async(::mystore_lib::handlers::authentication::login))
+                .route(web::delete().to_async(::mystore_lib::handlers::authentication::logout))
         )
     )
     .bind("127.0.0.1:8088").unwrap()

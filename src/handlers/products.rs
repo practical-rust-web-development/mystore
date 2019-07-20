@@ -1,9 +1,9 @@
-use actix_web::{ web, HttpResponse, Result, Error };
+use actix::prelude::Future;
+use actix_web::{ web, HttpResponse };
 
 use crate::models::product::ProductList;
 use crate::handlers::LoggedUser;
 use crate::db_connection::PgPool;
-use crate::handlers::pg_pool_handler;
 
 #[derive(Deserialize)]
 pub struct ProductSearch{ 
@@ -16,31 +16,8 @@ pub struct ProductPagination {
 }
 
 use serde::Serialize;
-use actix::prelude::Future;
-use crate::errors::MyStoreError;
 
 use crate::db_connection::PgPooledConnection;
-
-macro_rules! function_handler {
-    ( $handler_name:ident ($($arg:ident:$typ:ty),*) -> $body:expr) => {
-        pub fn $handler_name(user: LoggedUser, pool: web::Data<PgPool>, $($arg:$typ,)*) 
-            -> impl Future<Item = HttpResponse, Error = Error>
-        {
-            web::block(move || {
-                let pg_pool = pool
-                    .get()
-                    .map_err(|_| {
-                        MyStoreError::PGConnectionError
-                    })?;
-                $body(user, pg_pool)
-            })
-            .then(|res| match res {
-                Ok(data) => Ok(HttpResponse::Ok().json(data)),
-                Err(_) => Ok(HttpResponse::InternalServerError().into()),
-            })
-        }
-    };
-}
 
 function_handler!(
     index (product_search: web::Query<ProductSearch>, pagination: web::Query<ProductPagination>)

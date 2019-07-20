@@ -85,16 +85,16 @@ mod test{
                     .service(
                         web::resource("/prices")
                             .route(web::get()
-                                .to(::mystore_lib::handlers::prices::index))
+                                .to_async(::mystore_lib::handlers::prices::index))
                             .route(web::post()
-                                .to(::mystore_lib::handlers::prices::create))
+                                .to_async(::mystore_lib::handlers::prices::create))
                     )
                     .service(
                         web::resource("/auth")
                             .route(web::post()
-                                .to(::mystore_lib::handlers::authentication::login))
+                                .to_async(::mystore_lib::handlers::authentication::login))
                             .route(web::delete()
-                                .to(::mystore_lib::handlers::authentication::logout))
+                                .to_async(::mystore_lib::handlers::authentication::logout))
                     )
 
             )

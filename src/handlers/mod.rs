@@ -1,3 +1,5 @@
+#[macro_use]
+pub mod function_handler;
 pub mod products;
 pub mod prices;
 pub mod register;
