@@ -13,7 +13,7 @@ macro_rules! function_handler {
             })
             .then(|res| match res {
                 Ok(data) => Ok(HttpResponse::Ok().json(data)),
-                Err(_) => Ok(HttpResponse::InternalServerError().into()),
+                Err(error) => Err(actix_web::error::ErrorInternalServerError(error)),
             })
         }
     };
