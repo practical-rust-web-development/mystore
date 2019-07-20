@@ -1,17 +1,19 @@
+#[macro_use]
+pub mod function_handler;
 pub mod products;
 pub mod prices;
 pub mod register;
 pub mod authentication;
 
-use actix_web::web;
+use actix_web::{ Result, web };
 use actix_web::HttpResponse;
 use crate::db_connection::{ PgPool, PgPooledConnection };
 
-pub fn pg_pool_handler(pool: web::Data<PgPool>) -> Result<PgPooledConnection, HttpResponse> {
+pub fn pg_pool_handler(pool: web::Data<PgPool>) -> Result<PgPooledConnection> {
     pool
     .get()
     .map_err(|e| {
-        HttpResponse::InternalServerError().json(e.to_string())
+        actix_web::error::ErrorInternalServerError(e)
     })
 }
 

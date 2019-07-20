@@ -103,15 +103,7 @@ impl AuthUser {
                 .pop()
                 .ok_or(MyStoreError::DBError(diesel::result::Error::NotFound))?;
 
-        let verify_password =
-            verify(&self.password, &user.password)
-                .map_err( |_error| {
-                    MyStoreError::WrongPassword(
-                        "Wrong password, check again please".to_string()
-                    )
-                })?;
-
-        if verify_password {
+        if verify(&self.password, &user.password)? {
             Ok(user)
         } else {
             Err(MyStoreError::WrongPassword(
