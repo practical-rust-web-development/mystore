@@ -1,0 +1,35 @@
+language: rust
+rust:
+  - stable
+  - beta
+  - nightly
+matrix:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+cache: cargo
+services:
+  - postgresql
+addons:
+  chrome: stable
+  postgresql: "10"
+  apt:
+    packages:
+      - postgresql-10
+      - postgresql-client-10
+env:
+  global:
+    - PGPORT: 5433
+before_script:
+  - sudo sed -i -e '/local.*peer/s/postgres/all/' -e 's/peer\|md5/trust/g' /etc/postgresql/*/main/pg_hba.conf
+  - sudo service postgresql restart
+  - sleep 1
+  - sudo apt-get update
+  - sudo apt-get install -y postgresql-10-rum
+  - psql -c 'create database mystore_test;' -U postgres
+  - psql -c 'CREATE EXTENSION rum;' -d mystore_test -U postgres
+script:
+  - cargo install diesel_cli --quiet || true
+  - cargo build --verbose --all
+  - DATABASE_URL=postgres://postgres:@localhost/mystore_test diesel setup
+  - cargo test --verbose --all

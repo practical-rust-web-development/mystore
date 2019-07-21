@@ -8,6 +8,8 @@ extern crate serde_derive;
 
 extern crate actix;
 extern crate actix_web;
+extern crate actix_identity;
+extern crate actix_cors;
 extern crate bcrypt;
 extern crate jsonwebtoken as jwt;
 extern crate csrf_token;
