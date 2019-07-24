@@ -1,5 +1,5 @@
 use actix_web::HttpResponse;
-use actix_web::middleware::identity::Identity;
+use actix_identity::Identity;
 use actix_web::web;
 use csrf_token::CsrfTokenGenerator;
 use hex;

@@ -1,12 +1,12 @@
 #[macro_use]
 extern crate dotenv_codegen;
-#[macro_use]
 extern crate itertools;
 
 use actix_web::{App, HttpServer, web};
-use actix_web::middleware::identity::{CookieIdentityPolicy, IdentityService};
+use actix_identity::{CookieIdentityPolicy, IdentityService};
 use actix_web::http::header;
-use actix_web::middleware::{cors, Logger};
+use actix_cors::Cors;
+use actix_web::middleware::Logger;
 use csrf_token::CsrfTokenGenerator;
 use chrono::Duration;
 use ::mystore_lib::db_connection::establish_connection;
@@ -32,7 +32,7 @@ fn main() {
             )
         )
         .wrap(
-            cors::Cors::new()
+            Cors::new()
                 .send_wildcard()
                 .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
                 .allowed_headers(vec![header::AUTHORIZATION,

@@ -7,9 +7,9 @@ mod test{
     use actix_http::HttpService;
     use actix_http_test::{ TestServer, TestServerRuntime };
     use actix_web::http::header;
-    use actix_web::middleware::identity::{CookieIdentityPolicy, IdentityService};
+    use actix_identity::{CookieIdentityPolicy, IdentityService};
     use actix_web::{http, App, web};
-    use actix_web::middleware::cors;
+    use actix_cors::Cors;
     use chrono::Duration;
     use csrf_token::CsrfTokenGenerator;
     use actix_http::httpmessage::HttpMessage;
@@ -49,7 +49,7 @@ mod test{
                         )
                     )
                     .wrap(
-                        cors::Cors::new()
+                        Cors::new()
                             .allowed_origin("localhost")
                             .allowed_methods(vec!["GET", "POST", "PUT", "PATCH", "DELETE"])
                             .allowed_headers(vec![header::AUTHORIZATION,

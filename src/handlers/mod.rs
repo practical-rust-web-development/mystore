@@ -18,7 +18,7 @@ pub fn pg_pool_handler(pool: web::Data<PgPool>) -> Result<PgPooledConnection> {
 }
 
 use actix_web::{ FromRequest, HttpRequest, dev };
-use actix_web::middleware::identity::Identity;
+use actix_identity::Identity;
 use crate::utils::jwt::{ decode_token, SlimUser };
 pub type LoggedUser = SlimUser;
 
