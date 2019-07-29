@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate dotenv_codegen;
 extern crate itertools;
+#[macro_use]
+extern crate juniper;
 
 use actix_web::{App, HttpServer, web};
 use actix_identity::{CookieIdentityPolicy, IdentityService};
@@ -11,12 +13,16 @@ use csrf_token::CsrfTokenGenerator;
 use chrono::Duration;
 use ::mystore_lib::db_connection::establish_connection;
 
+use ::mystore_lib::models::sale::create_schema;
+
 fn main() {
     std::env::set_var("RUST_LOG", "actix_web=debug");
     env_logger::init();
     let sys = actix::System::new("mystore");
 
     let csrf_token_header = header::HeaderName::from_lowercase(b"x-csrf-token").unwrap();
+
+    let schema = std::sync::Arc::new(create_schema());
 
     HttpServer::new(
     move || App::new()
@@ -49,6 +55,7 @@ fn main() {
             )
         )
         .data(establish_connection())
+        .data(schema.clone())
         .service(
             web::resource("/products")
                 .route(web::get().to_async(::mystore_lib::handlers::products::index))

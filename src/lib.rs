@@ -23,9 +23,13 @@ extern crate env_logger;
 extern crate actix_http;
 extern crate diesel_full_text_search;
 
+#[macro_use]
+extern crate juniper;
+
 pub mod schema;
 pub mod db_connection;
 pub mod models;
 pub mod handlers;
 pub mod errors;
 pub mod utils;
+pub mod graphql;
