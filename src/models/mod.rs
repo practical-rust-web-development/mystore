@@ -2,6 +2,7 @@ pub mod price;
 pub mod user;
 pub mod product;
 pub mod sale;
+pub mod sale_product;
 
 pub fn show_query<T>(query: &T)
 where
