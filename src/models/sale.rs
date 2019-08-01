@@ -29,6 +29,7 @@ pub struct NewSale {
 
 use crate::models::sale_product::{ SaleProduct, NewSaleProduct };
 
+#[derive(Deserialize, Serialize)]
 #[derive(juniper::GraphQLObject)]
 pub struct FullSale {
     pub sale: Sale,
@@ -74,47 +75,51 @@ pub struct Mutation;
     Context = Context,
 )]
 impl Mutation {
-    fn createSale(context: &Context, new_sale: NewSale, new_sale_products: Vec<NewSaleProduct>) -> FieldResult<FullSale> {
-        use diesel::RunQueryDsl;
-        use diesel::Connection;
+    fn createSale(context: &Context, new_sale: NewSale, param_new_sale_products: Vec<NewSaleProduct>) 
+        -> FieldResult<FullSale> {
+            use diesel::RunQueryDsl;
+            use diesel::Connection;
 
-        let conn: &PgConnection = &context.conn;
+            let conn: &PgConnection = &context.conn;
 
-        conn.transaction(|| {
-            let sale = 
-                diesel::insert_into(schema::sales::table)
-                    .values(new_sale)
-                    .returning(
-                        (
-                            sales::dsl::id,
-                            sales::dsl::user_id,
-                            sales::dsl::sale_date,
-                            sales::dsl::total
-                        )
-                    )
-                    .get_result::<Sale>(conn)?;
-
-            let sale_products: Result<Vec<SaleProduct>, _> =
-                new_sale_products.into_iter().map(|new_sale_product| {
-                    diesel::insert_into(schema::sale_products::table)
-                        .values(new_sale_product)
+            conn.transaction(|| {
+                let sale = 
+                    diesel::insert_into(schema::sales::table)
+                        .values(new_sale)
                         .returning(
                             (
-                                sale_products::dsl::id,
-                                sale_products::dsl::product_id,
-                                sale_products::dsl::sale_id,
-                                sale_products::dsl::amount,
-                                sale_products::dsl::discount,
-                                sale_products::dsl::tax,
-                                sale_products::dsl::price,
-                                sale_products::dsl::total
+                                sales::dsl::id,
+                                sales::dsl::user_id,
+                                sales::dsl::sale_date,
+                                sales::dsl::total
                             )
                         )
-                        .get_result::<SaleProduct>(conn)
-                    }).collect();
+                        .get_result::<Sale>(conn)?;
 
-            Ok(FullSale{ sale, sale_products: sale_products? })
-        })
+                let sale_products: Result<Vec<SaleProduct>, _> =
+                    param_new_sale_products.into_iter().map(|param_new_sale_product| {
+                        let new_sale_product = NewSaleProduct {
+                            sale_id: Some(sale.id), ..param_new_sale_product
+                        };
+                        diesel::insert_into(schema::sale_products::table)
+                            .values(new_sale_product)
+                            .returning(
+                                (
+                                    sale_products::dsl::id,
+                                    sale_products::dsl::product_id,
+                                    sale_products::dsl::sale_id,
+                                    sale_products::dsl::amount,
+                                    sale_products::dsl::discount,
+                                    sale_products::dsl::tax,
+                                    sale_products::dsl::price,
+                                    sale_products::dsl::total
+                                )
+                            )
+                            .get_result::<SaleProduct>(conn)
+                        }).collect();
+
+                Ok(FullSale{ sale, sale_products: sale_products? })
+            })
     }
 }
 

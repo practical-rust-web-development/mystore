@@ -25,7 +25,7 @@ pub struct SaleProduct {
 #[graphql(description="Relationship between sale and products")]
 pub struct NewSaleProduct {
     pub product_id: i32,
-    pub sale_id: i32,
+    pub sale_id: Option<i32>,
     pub amount: f64,
     pub discount: i32,
     pub tax: i32,
