@@ -12,10 +12,12 @@ mod test{
     use actix_cors::Cors;
     use chrono::Duration;
     use chrono::Local;
+    use chrono::NaiveDate;
     use csrf_token::CsrfTokenGenerator;
     use actix_http::httpmessage::HttpMessage;
     use http::header::HeaderValue;
     use actix_http::cookie::Cookie;
+    use juniper::{ InputValue, FromInputValue };
 
     use serde_json::json;
     use std::str;
@@ -25,7 +27,7 @@ mod test{
 
     use ::mystore_lib::models::product::{ Product, NewProduct, ProductList };
     use ::mystore_lib::models::user::{ NewUser, User };
-    use ::mystore_lib::models::price::{ Price, PriceProduct, PriceProductToUpdate, NewPriceProduct, NewPrice };
+    use ::mystore_lib::models::price::{ Price, PriceProduct, NewPrice };
     use ::mystore_lib::handlers::products::ProductWithPrices;
     use ::mystore_lib::models::sale::create_schema;
     use ::mystore_lib::graphql::{graphql, graphiql};
@@ -117,7 +119,8 @@ mod test{
         };
 
         let new_sale = NewSale {
-            sale_date: Local::now().naive_local(),
+            user_id: None,
+            sale_date: NaiveDate::from_ymd(2019, 11, 12),
             total: 123.98
         };
 
@@ -192,7 +195,7 @@ mod test{
                             csrf_token: HeaderValue,
                             request_cookie: Cookie,
                             new_sale: &NewSale,
-                            new_sale_products: Vec<&NewSaleProduct>) -> FullSale {
+                            new_sale_products: Vec<&NewSaleProduct>) -> InputValue {
 
         let request = srv
                           .post("/graphql")
@@ -201,28 +204,58 @@ mod test{
                           .cookie(request_cookie)
                           .timeout(std_duration::from_secs(600));
 
+
         let query = 
             format!(
             r#"
             {{
                 "query": "
-                    mutation {{
-                            createSale(newSale: NewSale, paramNewSaleProducts: NewSaleProducts) {{
-                                sale {{ id }}
-                                saleProducts {{ id }}
+                    mutation CreateSale($paramNewSale: NewSale!, $paramNewSaleProducts: NewSaleProducts!) {{
+                            createSale(paramNewSale: $paramNewSale, paramNewSaleProducts: $paramNewSaleProducts) {{
+                                sale {{
+                                    id
+                                    userId
+                                    saleDate
+                                    total
+                                }}
+                                saleProducts {{
+                                    id
+                                    productId
+                                    saleId
+                                    amount
+                                    discount
+                                    tax
+                                    price
+                                    total
+                                }}
                             }}
                     }}
                 ",
                 "variables": {{
-                    "newSale": {{
+                    "paramNewSale": {{
                         "saleDate": "{}",
                         "total": {}
                     }},
-                    "paramNewSaleProducts": {}
+                    "paramNewSaleProducts": {{
+                        "data":
+                            [{{
+                                "amount": {},
+                                "discount": {},
+                                "price": {},
+                                "productId": {},
+                                "tax": {},
+                                "total": {}
+                            }}]
+                    }}
                 }}
             }}"#,
             new_sale.sale_date, new_sale.total,
-            json!(new_sale_products).to_string())
+            new_sale_products.get(0).unwrap().amount,
+            new_sale_products.get(0).unwrap().discount,
+            new_sale_products.get(0).unwrap().price,
+            new_sale_products.get(0).unwrap().product_id,
+            new_sale_products.get(0).unwrap().tax,
+            new_sale_products.get(0).unwrap().total)
             .replace("\n", "");
 
         dbg!(&query);
@@ -232,11 +265,10 @@ mod test{
                 .block_on(request.send_body(query))
                 .unwrap();
 
-        //assert!(response.status().is_success());
+        assert!(response.status().is_success());
 
         let bytes = srv.block_on(response.body()).unwrap();
         let body = str::from_utf8(&bytes).unwrap();
-        dbg!(&body);
         serde_json::from_str(body).unwrap()
     }
 

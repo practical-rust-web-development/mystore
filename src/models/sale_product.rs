@@ -6,7 +6,7 @@ use crate::models::product::Product;
 #[table_name="sale_products"]
 #[belongs_to(Sale)]
 #[belongs_to(Product)]
-#[derive(juniper::GraphQLObject)]
+#[derive(juniper::GraphQLInputObject)]
 #[graphql(description="Relationship between sale and products")]
 pub struct SaleProduct {
     pub id: i32,
@@ -32,3 +32,6 @@ pub struct NewSaleProduct {
     pub price: i32,
     pub total: f64
 }
+
+#[derive(juniper::GraphQLInputObject)]
+pub struct NewSaleProducts{ pub data: Vec<NewSaleProduct> }

@@ -51,7 +51,7 @@ table! {
     sales (id) {
         id -> Int4,
         user_id -> Int4,
-        sale_date -> Timestamp,
+        sale_date -> Date,
         total -> Float8,
     }
 }

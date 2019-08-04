@@ -2,7 +2,7 @@
 CREATE TABLE sales (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  sale_date TIMESTAMP NOT NULL,
+  sale_date DATE NOT NULL,
   total FLOAT NOT NULL
 );
 

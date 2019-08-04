@@ -1,6 +1,6 @@
 use diesel::PgConnection;
 use diesel::BelongingToDsl;
-use chrono::NaiveDateTime;
+use chrono::NaiveDate;
 use juniper::{FieldResult};
 use crate::schema;
 use crate::schema::sales;
@@ -9,12 +9,12 @@ use crate::db_connection::PgPooledConnection;
 
 #[derive(Identifiable, Queryable, Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[table_name="sales"]
-#[derive(juniper::GraphQLObject)]
+#[derive(juniper::GraphQLInputObject)]
 #[graphql(description="Sale Bill")]
 pub struct Sale {
     pub id: i32,
     pub user_id: i32,
-    pub sale_date: NaiveDateTime,
+    pub sale_date: NaiveDate,
     pub total: f64
 }
 
@@ -23,14 +23,15 @@ pub struct Sale {
 #[derive(juniper::GraphQLInputObject)]
 #[graphql(description="Sale Bill")]
 pub struct NewSale {
-    pub sale_date: NaiveDateTime,
+    pub sale_date: NaiveDate,
+    pub user_id: Option<i32>,
     pub total: f64
 }
 
-use crate::models::sale_product::{ SaleProduct, NewSaleProduct };
+use crate::models::sale_product::{ SaleProduct, NewSaleProduct, NewSaleProducts };
 
 #[derive(Deserialize, Serialize)]
-#[derive(juniper::GraphQLObject)]
+#[derive(juniper::GraphQLInputObject)]
 pub struct FullSale {
     pub sale: Sale,
     pub sale_products: Vec<SaleProduct>
@@ -75,12 +76,18 @@ pub struct Mutation;
     Context = Context,
 )]
 impl Mutation {
-    fn createSale(context: &Context, new_sale: NewSale, param_new_sale_products: Vec<NewSaleProduct>) 
+
+    fn createSale(context: &Context, param_new_sale: NewSale, param_new_sale_products: NewSaleProducts) 
         -> FieldResult<FullSale> {
             use diesel::RunQueryDsl;
             use diesel::Connection;
 
             let conn: &PgConnection = &context.conn;
+
+            let new_sale = NewSale {
+                user_id: Some(context.user_id),
+                ..param_new_sale
+            };
 
             conn.transaction(|| {
                 let sale = 
@@ -97,7 +104,7 @@ impl Mutation {
                         .get_result::<Sale>(conn)?;
 
                 let sale_products: Result<Vec<SaleProduct>, _> =
-                    param_new_sale_products.into_iter().map(|param_new_sale_product| {
+                    param_new_sale_products.data.into_iter().map(|param_new_sale_product| {
                         let new_sale_product = NewSaleProduct {
                             sale_id: Some(sale.id), ..param_new_sale_product
                         };
