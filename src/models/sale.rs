@@ -9,7 +9,7 @@ use crate::db_connection::PgPooledConnection;
 
 #[derive(Identifiable, Queryable, Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[table_name="sales"]
-#[derive(juniper::GraphQLInputObject)]
+#[derive(juniper::GraphQLObject)]
 #[graphql(description="Sale Bill")]
 pub struct Sale {
     pub id: i32,
@@ -31,7 +31,7 @@ pub struct NewSale {
 use crate::models::sale_product::{ SaleProduct, NewSaleProduct, NewSaleProducts };
 
 #[derive(Deserialize, Serialize)]
-#[derive(juniper::GraphQLInputObject)]
+#[derive(juniper::GraphQLObject)]
 pub struct FullSale {
     pub sale: Sale,
     pub sale_products: Vec<SaleProduct>

@@ -17,9 +17,9 @@ mod test{
     use actix_http::httpmessage::HttpMessage;
     use http::header::HeaderValue;
     use actix_http::cookie::Cookie;
-    use juniper::{ InputValue, FromInputValue };
 
     use serde_json::json;
+    use juniper::Value;
     use std::str;
     use std::time::Duration as std_duration;
     use crate::common::db_connection::establish_connection;
@@ -136,11 +136,19 @@ mod test{
             total: 28.0
         };
 
-        create_a_sale(srv.borrow_mut(), 
-                      csrf_token.clone(),
-                      request_cookie.clone(),
-                      &new_sale,
-                      vec![&new_sale_product]);
+        let sale = 
+            create_a_sale(srv.borrow_mut(), 
+                        csrf_token.clone(),
+                        request_cookie.clone(),
+                        &new_sale,
+                        vec![&new_sale_product]);
+
+        //let sale_id = sale.get("data").unwrap().get("createSale").unwrap().get("sale").unwrap().get("id").unwrap();
+        //let sale_product_id = sale.get("data").unwrap().get("createSale").unwrap().get("saleProducts").unwrap().get("id").unwrap();
+
+        //dbg!(sale);
+
+        assert_eq!(1+1,5);
     }
 
     fn login(mut srv: RefMut<TestServerRuntime>) -> (HeaderValue, Cookie) {
@@ -195,7 +203,7 @@ mod test{
                             csrf_token: HeaderValue,
                             request_cookie: Cookie,
                             new_sale: &NewSale,
-                            new_sale_products: Vec<&NewSaleProduct>) -> InputValue {
+                            new_sale_products: Vec<&NewSaleProduct>) -> FullSale {
 
         let request = srv
                           .post("/graphql")
@@ -258,8 +266,6 @@ mod test{
             new_sale_products.get(0).unwrap().total)
             .replace("\n", "");
 
-        dbg!(&query);
-
         let mut response =
             srv
                 .block_on(request.send_body(query))
@@ -269,34 +275,41 @@ mod test{
 
         let bytes = srv.block_on(response.body()).unwrap();
         let body = str::from_utf8(&bytes).unwrap();
-        serde_json::from_str(body).unwrap()
+        let object: serde_json::Value = serde_json::from_str(body).unwrap();
+        dbg!(&object);
+        let data = object.get("data").unwrap();
+        dbg!(data);
+        let create_sale = data.get("createSale").unwrap();
+        dbg!(&create_sale);
+        let full_sale_str = create_sale.as_str().unwrap();
+        dbg!(full_sale_str);
+        serde_json::from_str(full_sale_str).unwrap()
     }
 
-    fn show_a_product(mut srv: RefMut<TestServerRuntime>,
-                          csrf_token: HeaderValue,
-                          request_cookie: Cookie,
-                          id: &i32,
-                          expected_product: &Product,
-                          prices: Vec<PriceProduct>) {
+    //fn show_a_sale(mut srv: RefMut<TestServerRuntime>,
+    //                   csrf_token: HeaderValue,
+    //                   request_cookie: Cookie,
+    //                   id: &i32,
+    //                   expected_sale: &FullSale) {
 
-        let request = srv
-                        .get(format!("/products/{}", id))
-                        .header("x-csrf-token", csrf_token.to_str().unwrap())
-                        .cookie(request_cookie);
+    //    let request = srv
+    //                    .get(format!("/products/{}", id))
+    //                    .header("x-csrf-token", csrf_token.to_str().unwrap())
+    //                    .cookie(request_cookie);
 
-        let mut response = srv.block_on(request.send()).unwrap();
-        assert!(response.status().is_success());
+    //    let mut response = srv.block_on(request.send()).unwrap();
+    //    assert!(response.status().is_success());
 
-        assert_eq!(
-            response.headers().get(http::header::CONTENT_TYPE).unwrap(),
-            "application/json"
-        );
+    //    assert_eq!(
+    //        response.headers().get(http::header::CONTENT_TYPE).unwrap(),
+    //        "application/json"
+    //    );
 
-        let bytes = srv.block_on(response.body()).unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        let response_product: (Product, Vec<PriceProduct>) = serde_json::from_str(body).unwrap();
-        assert_eq!(response_product, (expected_product.clone(), prices));
-    }
+    //    let bytes = srv.block_on(response.body()).unwrap();
+    //    let body = str::from_utf8(&bytes).unwrap();
+    //    let response_product: (Product, Vec<PriceProduct>) = serde_json::from_str(body).unwrap();
+    //    assert_eq!(response_product, (expected_product.clone(), prices));
+    //}
 
     fn update_a_product(mut srv: RefMut<TestServerRuntime>,
                           csrf_token: HeaderValue,
