@@ -7,7 +7,7 @@ use crate::schema::sales;
 use crate::schema::sale_products;
 use crate::db_connection::PgPooledConnection;
 
-#[derive(Identifiable, Queryable, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Identifiable, Queryable, Debug, Clone, PartialEq)]
 #[table_name="sales"]
 #[derive(juniper::GraphQLObject)]
 #[graphql(description="Sale Bill")]
@@ -30,7 +30,7 @@ pub struct NewSale {
 
 use crate::models::sale_product::{ SaleProduct, NewSaleProduct, NewSaleProducts };
 
-#[derive(Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 #[derive(juniper::GraphQLObject)]
 pub struct FullSale {
     pub sale: Sale,
@@ -53,14 +53,14 @@ pub struct Query;
 )]
 impl Query {
 
-    fn sale(context: &Context, sale_id: String) -> FieldResult<FullSale> {
+    fn sale(context: &Context, sale_id: i32) -> FieldResult<FullSale> {
         use diesel::{ ExpressionMethods, QueryDsl, RunQueryDsl };
 
         let conn: &PgConnection = &context.conn;
         let sale: Sale =
             schema::sales::table
                 .filter(sales::dsl::user_id.eq(context.user_id))
-                .find(sale_id.parse::<i32>().unwrap())
+                .find(sale_id)
                 .first::<Sale>(conn)?;
         
         let sale_products = 

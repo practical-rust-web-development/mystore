@@ -18,8 +18,7 @@ mod test{
     use http::header::HeaderValue;
     use actix_http::cookie::Cookie;
 
-    use serde_json::json;
-    use juniper::Value;
+    use serde_json::{ json, Value };
     use std::str;
     use std::time::Duration as std_duration;
     use crate::common::db_connection::establish_connection;
@@ -136,19 +135,21 @@ mod test{
             total: 28.0
         };
 
-        let sale = 
+        let response_sale = 
             create_a_sale(srv.borrow_mut(), 
                         csrf_token.clone(),
                         request_cookie.clone(),
                         &new_sale,
                         vec![&new_sale_product]);
 
-        //let sale_id = sale.get("data").unwrap().get("createSale").unwrap().get("sale").unwrap().get("id").unwrap();
-        //let sale_product_id = sale.get("data").unwrap().get("createSale").unwrap().get("saleProducts").unwrap().get("id").unwrap();
+        let sale = response_sale.get("data").unwrap().get("createSale").unwrap();
+        let sale_id: i32 = serde_json::from_value(sale.get("sale").unwrap().get("id").unwrap().clone()).unwrap();
 
-        //dbg!(sale);
-
-        assert_eq!(1+1,5);
+        show_a_sale(srv.borrow_mut(), 
+                    csrf_token.clone(),
+                    request_cookie.clone(),
+                    &sale_id,
+                    sale)
     }
 
     fn login(mut srv: RefMut<TestServerRuntime>) -> (HeaderValue, Cookie) {
@@ -203,7 +204,7 @@ mod test{
                             csrf_token: HeaderValue,
                             request_cookie: Cookie,
                             new_sale: &NewSale,
-                            new_sale_products: Vec<&NewSaleProduct>) -> FullSale {
+                            new_sale_products: Vec<&NewSaleProduct>) -> Value {
 
         let request = srv
                           .post("/graphql")
@@ -211,7 +212,6 @@ mod test{
                           .header("x-csrf-token", csrf_token.to_str().unwrap())
                           .cookie(request_cookie)
                           .timeout(std_duration::from_secs(600));
-
 
         let query = 
             format!(
@@ -275,41 +275,69 @@ mod test{
 
         let bytes = srv.block_on(response.body()).unwrap();
         let body = str::from_utf8(&bytes).unwrap();
-        let object: serde_json::Value = serde_json::from_str(body).unwrap();
-        dbg!(&object);
-        let data = object.get("data").unwrap();
-        dbg!(data);
-        let create_sale = data.get("createSale").unwrap();
-        dbg!(&create_sale);
-        let full_sale_str = create_sale.as_str().unwrap();
-        dbg!(full_sale_str);
-        serde_json::from_str(full_sale_str).unwrap()
+        serde_json::from_str(body).unwrap()
     }
 
-    //fn show_a_sale(mut srv: RefMut<TestServerRuntime>,
-    //                   csrf_token: HeaderValue,
-    //                   request_cookie: Cookie,
-    //                   id: &i32,
-    //                   expected_sale: &FullSale) {
+    fn show_a_sale(mut srv: RefMut<TestServerRuntime>,
+                       csrf_token: HeaderValue,
+                       request_cookie: Cookie,
+                       id: &i32,
+                       expected_sale: &Value) {
 
-    //    let request = srv
-    //                    .get(format!("/products/{}", id))
-    //                    .header("x-csrf-token", csrf_token.to_str().unwrap())
-    //                    .cookie(request_cookie);
+        let query = format!(r#"
+            {{
+                "query": "
+                    query ShowASale($saleId: Int!) {{
+                        sale(saleId: $saleId) {{
+                            sale {{
+                                id
+                                userId
+                                saleDate
+                                total
+                            }}
+                            saleProducts {{
+                                id
+                                productId
+                                saleId
+                                amount
+                                discount
+                                tax
+                                price
+                                total
+                            }}
+                        }}
+                    }}
+                ",
+                "variables": {{
+                    "saleId": {}
+                }}
+            }}
+        "#, id).replace("\n", "");
 
-    //    let mut response = srv.block_on(request.send()).unwrap();
-    //    assert!(response.status().is_success());
+        let request = srv
+                          .post("/graphql")
+                          .header(header::CONTENT_TYPE, "application/json")
+                          .header("x-csrf-token", csrf_token.to_str().unwrap())
+                          .cookie(request_cookie)
+                          .timeout(std_duration::from_secs(600));
 
-    //    assert_eq!(
-    //        response.headers().get(http::header::CONTENT_TYPE).unwrap(),
-    //        "application/json"
-    //    );
+        let mut response =
+            srv
+                .block_on(request.send_body(query))
+                .unwrap();
+        assert!(response.status().is_success());
 
-    //    let bytes = srv.block_on(response.body()).unwrap();
-    //    let body = str::from_utf8(&bytes).unwrap();
-    //    let response_product: (Product, Vec<PriceProduct>) = serde_json::from_str(body).unwrap();
-    //    assert_eq!(response_product, (expected_product.clone(), prices));
-    //}
+        assert_eq!(
+            response.headers().get(http::header::CONTENT_TYPE).unwrap(),
+            "application/json"
+        );
+
+        let bytes = srv.block_on(response.body()).unwrap();
+        let body = str::from_utf8(&bytes).unwrap();
+        let response_sale: Value = serde_json::from_str(body).unwrap();
+        let sale = response_sale.get("data").unwrap().get("sale").unwrap();
+        assert_eq!(sale, expected_sale);
+    }
 
     fn update_a_product(mut srv: RefMut<TestServerRuntime>,
                           csrf_token: HeaderValue,

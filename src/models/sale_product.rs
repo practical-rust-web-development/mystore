@@ -2,7 +2,7 @@ use crate::schema::sale_products;
 use crate::models::sale::Sale;
 use crate::models::product::Product;
 
-#[derive(Identifiable, Associations, Queryable, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Identifiable, Associations, Queryable, Debug, Clone, PartialEq)]
 #[table_name="sale_products"]
 #[belongs_to(Sale)]
 #[belongs_to(Product)]
