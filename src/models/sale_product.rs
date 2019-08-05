@@ -24,13 +24,14 @@ pub struct SaleProduct {
 #[derive(juniper::GraphQLInputObject)]
 #[graphql(description="Relationship between sale and products")]
 pub struct NewSaleProduct {
-    pub product_id: i32,
+    pub id: Option<i32>,
+    pub product_id: Option<i32>,
     pub sale_id: Option<i32>,
-    pub amount: f64,
-    pub discount: i32,
-    pub tax: i32,
-    pub price: i32,
-    pub total: f64
+    pub amount: Option<f64>,
+    pub discount: Option<i32>,
+    pub tax: Option<i32>,
+    pub price: Option<i32>,
+    pub total: Option<f64>
 }
 
 #[derive(juniper::GraphQLInputObject)]

@@ -23,9 +23,10 @@ pub struct Sale {
 #[derive(juniper::GraphQLInputObject)]
 #[graphql(description="Sale Bill")]
 pub struct NewSale {
-    pub sale_date: NaiveDate,
+    pub id: Option<i32>,
+    pub sale_date: Option<NaiveDate>,
     pub user_id: Option<i32>,
-    pub total: f64
+    pub total: Option<f64>
 }
 
 use crate::models::sale_product::{ SaleProduct, NewSaleProduct, NewSaleProducts };
@@ -127,7 +128,32 @@ impl Mutation {
 
                 Ok(FullSale{ sale, sale_products: sale_products? })
             })
-    }
+        }
+
+
+    fn updateSale(context: &Context, param_sale: NewSale, param_sale_products: NewSaleProducts) 
+        -> FieldResult<FullSale> {
+            use diesel::RunQueryDsl;
+            use diesel::Connection;
+
+            let conn: &PgConnection = &context.conn;
+
+            conn.transaction(|| {
+                let sale = 
+                    diesel::update(schema::sales::table)
+                        .set(&param_sale)
+                        .get_result::<Sale>(conn)?;
+                
+                let sale_products: Result<Vec<SaleProduct>, _> =
+                    param_sale_products.data.into_iter().map (|sale_product| {
+                        diesel::update(schema::sale_products::table)
+                            .set(&sale_product)
+                            .get_result::<SaleProduct>(conn)
+                    }).collect();
+
+                Ok(FullSale{ sale, sale_products: sale_products? })
+            })
+        }
 }
 
 pub type Schema = juniper::RootNode<'static, Query, Mutation>;

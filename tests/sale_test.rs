@@ -31,7 +31,7 @@ mod test{
     use ::mystore_lib::models::sale::create_schema;
     use ::mystore_lib::graphql::{graphql, graphiql};
     use ::mystore_lib::models::sale::{ FullSale, NewSale };
-    use ::mystore_lib::models::sale_product::NewSaleProduct;
+    use ::mystore_lib::models::sale_product::{ NewSaleProduct, NewSaleProducts };
 
     #[test]
     fn test() {
@@ -101,7 +101,7 @@ mod test{
             user_id: Some(user.id)
         };
 
-        let _hat = NewProduct {
+        let new_hat = NewProduct {
             name: Some("Hat".to_string()),
             stock: Some(15.0),
             cost: Some(2045),
@@ -109,7 +109,7 @@ mod test{
             user_id: Some(user.id)
         };
 
-        let _pants = NewProduct {
+        let new_pants = NewProduct {
             name: Some("Pants".to_string()),
             stock: Some(25.0),
             cost: Some(3025),
@@ -117,22 +117,26 @@ mod test{
             user_id: Some(user.id)
         };
 
+        let shoe = create_product(user.id, new_shoe);
+        let hat = create_product(user.id, new_hat);
+        let pants = create_product(user.id, new_pants);
+
         let new_sale = NewSale {
+            id: None,
             user_id: None,
-            sale_date: NaiveDate::from_ymd(2019, 11, 12),
-            total: 123.98
+            sale_date: Some(NaiveDate::from_ymd(2019, 11, 12)),
+            total: Some(123.98)
         };
 
-        let shoe = create_product(user.id, new_shoe);
-
         let new_sale_product = NewSaleProduct {
-            product_id: shoe.id,
+            id: None,
+            product_id: Some(shoe.id),
             sale_id: None,
-            amount: 8.0,
-            discount: 0,
-            tax: 12,
-            price: 20,
-            total: 28.0
+            amount: Some(8.0),
+            discount: Some(0),
+            tax: Some(12),
+            price: Some(20),
+            total: Some(28.0)
         };
 
         let response_sale = 
@@ -149,7 +153,35 @@ mod test{
                     csrf_token.clone(),
                     request_cookie.clone(),
                     &sale_id,
-                    sale)
+                    sale);
+
+        let new_sale_to_update = NewSale {
+            id: Some(sale_id),
+            user_id: None,
+            sale_date: Some(NaiveDate::from_ymd(2019, 11, 10)),
+            total: Some(123.98)
+        };
+
+        let new_sale_product_hat = NewSaleProduct {
+            id: None,
+            product_id: Some(hat.id),
+            sale_id: None,
+            amount: Some(5.0),
+            discount: Some(0),
+            tax: Some(12),
+            price: Some(30),
+            total: Some(150.0)
+        };
+
+        let response_sale = 
+            update_a_sale(srv.borrow_mut(), 
+                        csrf_token.clone(),
+                        request_cookie.clone(),
+                        &new_sale_to_update,
+                        vec![&new_sale_product_hat]);
+
+        let sale = response_sale.get("data").unwrap().get("updateSale").unwrap();
+        assert_eq!(sale.get("sale").unwrap().get("saleDate").unwrap(), "2019-11-10")
     }
 
     fn login(mut srv: RefMut<TestServerRuntime>) -> (HeaderValue, Cookie) {
@@ -257,13 +289,13 @@ mod test{
                     }}
                 }}
             }}"#,
-            new_sale.sale_date, new_sale.total,
-            new_sale_products.get(0).unwrap().amount,
-            new_sale_products.get(0).unwrap().discount,
-            new_sale_products.get(0).unwrap().price,
-            new_sale_products.get(0).unwrap().product_id,
-            new_sale_products.get(0).unwrap().tax,
-            new_sale_products.get(0).unwrap().total)
+            new_sale.sale_date.unwrap(), new_sale.total.unwrap(),
+            new_sale_products.get(0).unwrap().amount.unwrap(),
+            new_sale_products.get(0).unwrap().discount.unwrap(),
+            new_sale_products.get(0).unwrap().price.unwrap(),
+            new_sale_products.get(0).unwrap().product_id.unwrap(),
+            new_sale_products.get(0).unwrap().tax.unwrap(),
+            new_sale_products.get(0).unwrap().total.unwrap())
             .replace("\n", "");
 
         let mut response =
@@ -339,31 +371,86 @@ mod test{
         assert_eq!(sale, expected_sale);
     }
 
-    fn update_a_product(mut srv: RefMut<TestServerRuntime>,
-                          csrf_token: HeaderValue,
-                          request_cookie: Cookie,
-                          id: &i32,
-                          changes_to_product: &NewProduct) {
+    fn update_a_sale(mut srv: RefMut<TestServerRuntime>,
+                         csrf_token: HeaderValue,
+                         request_cookie: Cookie,
+                         changes_to_sale: &NewSale,
+                         changes_to_sale_products: Vec<&NewSaleProduct>) -> Value {
 
         let request = srv
-                        .request(http::Method::PATCH, srv.url(&format!("/products/{}", id)))
-                        .header(header::CONTENT_TYPE, "application/json")
-                        .header("x-csrf-token", csrf_token.to_str().unwrap())
-                        .cookie(request_cookie)
-                        .timeout(std_duration::from_secs(600));
+                          .post("/graphql")
+                          .header(header::CONTENT_TYPE, "application/json")
+                          .header("x-csrf-token", csrf_token.to_str().unwrap())
+                          .cookie(request_cookie)
+                          .timeout(std_duration::from_secs(600));
 
-        let product_with_prices =
-            ProductWithPrices {
-                product: changes_to_product.clone(),
-                prices: vec![]
-            };
 
-        let response =
+        let query = 
+            format!(
+            r#"
+            {{
+                "query": "
+                    mutation UpdateSale($paramSale: NewSale!, $paramSaleProducts: NewSaleProducts!) {{
+                            updateSale(paramSale: $paramSale, paramSaleProducts: $paramSaleProducts) {{
+                                sale {{
+                                    id
+                                    userId
+                                    saleDate
+                                    total
+                                }}
+                                saleProducts {{
+                                    id
+                                    productId
+                                    saleId
+                                    amount
+                                    discount
+                                    tax
+                                    price
+                                    total
+                                }}
+                            }}
+                    }}
+                ",
+                "variables": {{
+                    "paramSale": {{
+                        "id": {},
+                        "saleDate": "{}",
+                        "total": {}
+                    }},
+                    "paramSaleProducts": {{
+                        "data":
+                            [{{
+                                "id": null,
+                                "amount": {},
+                                "discount": {},
+                                "price": {},
+                                "productId": {},
+                                "tax": {},
+                                "total": {}
+                            }}]
+                    }}
+                }}
+            }}"#,
+            changes_to_sale.id.unwrap(),
+            changes_to_sale.sale_date.unwrap(), changes_to_sale.total.unwrap(),
+            changes_to_sale_products.get(0).unwrap().amount.unwrap(),
+            changes_to_sale_products.get(0).unwrap().discount.unwrap(),
+            changes_to_sale_products.get(0).unwrap().price.unwrap(),
+            changes_to_sale_products.get(0).unwrap().product_id.unwrap(),
+            changes_to_sale_products.get(0).unwrap().tax.unwrap(),
+            changes_to_sale_products.get(0).unwrap().total.unwrap())
+            .replace("\n", "");
+
+        let mut response =
             srv
-                .block_on(request.send_body(json!(product_with_prices).to_string()))
+                .block_on(request.send_body(query))
                 .unwrap();
 
         assert!(response.status().is_success());
+
+        let bytes = srv.block_on(response.body()).unwrap();
+        let body = str::from_utf8(&bytes).unwrap();
+        serde_json::from_str(body).unwrap()
     }
 
     fn destroy_a_product(mut srv: RefMut<TestServerRuntime>,
@@ -446,29 +533,5 @@ mod test{
             .map (|product| product.0.clone())
             .collect();
         assert_eq!(data_to_compare, products);
-    }
-
-    fn create_a_price(mut srv: RefMut<TestServerRuntime>,
-                          csrf_token: HeaderValue,
-                          request_cookie: Cookie,
-                          price: &NewPrice) -> Price {
-
-        let request = srv
-                          .post("/prices")
-                          .header(header::CONTENT_TYPE, "application/json")
-                          .header("x-csrf-token", csrf_token.to_str().unwrap())
-                          .cookie(request_cookie)
-                          .timeout(std_duration::from_secs(600));
-
-        let mut response =
-            srv
-                .block_on(request.send_body(json!(price).to_string()))
-                .unwrap();
-
-        assert!(response.status().is_success());
-
-        let bytes = srv.block_on(response.body()).unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        serde_json::from_str(body).unwrap()
     }
 }
