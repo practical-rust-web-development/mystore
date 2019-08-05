@@ -26,8 +26,6 @@ mod test{
 
     use ::mystore_lib::models::product::{ Product, NewProduct, ProductList };
     use ::mystore_lib::models::user::{ NewUser, User };
-    use ::mystore_lib::models::price::{ Price, PriceProduct, NewPrice };
-    use ::mystore_lib::handlers::products::ProductWithPrices;
     use ::mystore_lib::models::sale::create_schema;
     use ::mystore_lib::graphql::{graphql, graphiql};
     use ::mystore_lib::models::sale::{ FullSale, NewSale };
@@ -119,7 +117,6 @@ mod test{
 
         let shoe = create_product(user.id, new_shoe);
         let hat = create_product(user.id, new_hat);
-        let pants = create_product(user.id, new_pants);
 
         let new_sale = NewSale {
             id: None,
@@ -181,7 +178,24 @@ mod test{
                         vec![&new_sale_product_hat]);
 
         let sale = response_sale.get("data").unwrap().get("updateSale").unwrap();
-        assert_eq!(sale.get("sale").unwrap().get("saleDate").unwrap(), "2019-11-10")
+        assert_eq!(sale.get("sale").unwrap().get("saleDate").unwrap(), "2019-11-10");
+
+        let response_sale_id_destroyed = 
+            destroy_a_sale(srv.borrow_mut(), 
+                           csrf_token.clone(),
+                           request_cookie.clone(),
+                           &sale_id);
+        
+        let sale_id_destroyed: i32 =
+         serde_json::from_value(
+             response_sale_id_destroyed
+                 .get("data")
+                 .unwrap()
+                 .get("destroySale")
+                 .unwrap()
+                 .clone()
+         ).unwrap();
+        assert_eq!(sale_id, sale_id_destroyed);
     }
 
     fn login(mut srv: RefMut<TestServerRuntime>) -> (HeaderValue, Cookie) {
@@ -453,22 +467,39 @@ mod test{
         serde_json::from_str(body).unwrap()
     }
 
-    fn destroy_a_product(mut srv: RefMut<TestServerRuntime>,
+    fn destroy_a_sale(mut srv: RefMut<TestServerRuntime>,
                           csrf_token: HeaderValue,
                           request_cookie: Cookie,
-                          id: &i32) {
-        let request = srv
-                        .request(http::Method::DELETE, srv.url(&format!("/products/{}", id)))
-                        .header(header::CONTENT_TYPE, "application/json")
-                        .header("x-csrf-token", csrf_token.to_str().unwrap())
-                        .cookie(request_cookie)
-                        .timeout(std_duration::from_secs(600));
+                          id: &i32) -> Value {
+        let query = format!(r#"
+            {{
+                "query": "
+                    mutation DestroyASale($saleId: Int!) {{
+                        destroySale(saleId: $saleId)
+                    }}
+                ",
+                "variables": {{
+                    "saleId": {}
+                }}
+            }}
+        "#, id).replace("\n", "");
 
-        let response =
+        let request = srv
+                          .post("/graphql")
+                          .header(header::CONTENT_TYPE, "application/json")
+                          .header("x-csrf-token", csrf_token.to_str().unwrap())
+                          .cookie(request_cookie)
+                          .timeout(std_duration::from_secs(600));
+
+        let mut response =
             srv
-                .block_on(request.send())
+                .block_on(request.send_body(query))
                 .unwrap();
         assert!(response.status().is_success());
+
+        let bytes = srv.block_on(response.body()).unwrap();
+        let body = str::from_utf8(&bytes).unwrap();
+        serde_json::from_str(body).unwrap()
     }
 
     fn products_index(mut srv: RefMut<TestServerRuntime>,

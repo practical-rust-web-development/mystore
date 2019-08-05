@@ -133,14 +133,22 @@ impl Mutation {
 
     fn updateSale(context: &Context, param_sale: NewSale, param_sale_products: NewSaleProducts) 
         -> FieldResult<FullSale> {
+            use diesel::QueryDsl;
             use diesel::RunQueryDsl;
+            use diesel::ExpressionMethods;
             use diesel::Connection;
+            use crate::schema::sales::dsl;
 
             let conn: &PgConnection = &context.conn;
+            let sale_id = param_sale.id.ok_or(
+                diesel::result::Error::QueryBuilderError("missing id".into())
+            )?;
 
             conn.transaction(|| {
                 let sale = 
-                    diesel::update(schema::sales::table)
+                    diesel::update(dsl::sales
+                                       .filter(dsl::user_id.eq(context.user_id))
+                                       .find(sale_id))
                         .set(&param_sale)
                         .get_result::<Sale>(conn)?;
                 
@@ -153,6 +161,19 @@ impl Mutation {
 
                 Ok(FullSale{ sale, sale_products: sale_products? })
             })
+        }
+
+    fn destroySale(context: &Context, sale_id: i32) 
+        -> FieldResult<i32> {
+            use diesel::QueryDsl;
+            use diesel::RunQueryDsl;
+            use diesel::ExpressionMethods;
+            use crate::schema::sales::dsl;
+
+            let conn: &PgConnection = &context.conn;
+            diesel::delete(dsl::sales.filter(dsl::user_id.eq(context.user_id)).find(sale_id))
+                .execute(conn)?;
+            Ok(sale_id)
         }
 }
 
