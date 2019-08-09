@@ -212,22 +212,22 @@ mod test{
 
         search_sales(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), data_to_compare);
 
-        //let response_sale_id_destroyed = 
-        //    destroy_a_sale(srv.borrow_mut(), 
-        //                   csrf_token.clone(),
-        //                   request_cookie.clone(),
-        //                   &sale_id);
+        let response_sale_id_destroyed = 
+            destroy_a_sale(srv.borrow_mut(), 
+                           csrf_token.clone(),
+                           request_cookie.clone(),
+                           &sale_id);
         
-        //let sale_id_destroyed: i32 =
-        // serde_json::from_value(
-        //     response_sale_id_destroyed
-        //         .get("data")
-        //         .unwrap()
-        //         .get("destroySale")
-        //         .unwrap()
-        //         .clone()
-        // ).unwrap();
-        //assert_eq!(sale_id, sale_id_destroyed);
+        let sale_id_destroyed: i32 =
+         serde_json::from_value(
+             response_sale_id_destroyed
+                 .get("data")
+                 .unwrap()
+                 .get("destroySale")
+                 .unwrap()
+                 .clone()
+         ).unwrap();
+        assert_eq!(sale_id, sale_id_destroyed);
     }
 
     fn login(mut srv: RefMut<TestServerRuntime>) -> (HeaderValue, Cookie) {
