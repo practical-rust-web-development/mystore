@@ -1,11 +1,14 @@
 use diesel::PgConnection;
 use diesel::BelongingToDsl;
+use diesel::sql_types;
 use chrono::NaiveDate;
 use juniper::{FieldResult};
 use crate::schema;
 use crate::schema::sales;
 use crate::schema::sale_products;
 use crate::db_connection::PgPooledConnection;
+use crate::models::product::{ Product, PRODUCT_COLUMNS };
+use crate::errors::MyStoreError;
 
 #[derive(Identifiable, Queryable, Debug, Clone, PartialEq)]
 #[table_name="sales"]
@@ -15,7 +18,8 @@ pub struct Sale {
     pub id: i32,
     pub user_id: i32,
     pub sale_date: NaiveDate,
-    pub total: f64
+    pub total: f64,
+    pub bill_number: Option<String>
 }
 
 #[derive(Insertable, Deserialize, Serialize, AsChangeset, Debug, Clone, PartialEq)]
@@ -26,16 +30,30 @@ pub struct NewSale {
     pub id: Option<i32>,
     pub sale_date: Option<NaiveDate>,
     pub user_id: Option<i32>,
-    pub total: Option<f64>
+    pub total: Option<f64>,
+    pub bill_number: Option<String>
 }
 
-use crate::models::sale_product::{ SaleProduct, NewSaleProduct, NewSaleProducts };
+use crate::models::sale_product::{ SaleProduct, NewSaleProduct, NewSaleProducts, FullSaleProduct,FullNewSaleProduct };
 
 #[derive(Debug, Clone)]
 #[derive(juniper::GraphQLObject)]
 pub struct FullSale {
     pub sale: Sale,
-    pub sale_products: Vec<SaleProduct>
+    pub sale_products: Vec<FullSaleProduct>
+}
+
+#[derive(Debug, Clone)]
+#[derive(juniper::GraphQLObject)]
+pub struct FullNewSale {
+    pub sale: NewSale,
+    pub sale_products: Vec<FullNewSaleProduct>
+}
+
+#[derive(Debug, Clone)]
+#[derive(juniper::GraphQLObject)]
+pub struct ListSale {
+    pub data: Vec<FullSale>
 }
 
 use std::sync::Arc;
@@ -49,10 +67,104 @@ impl juniper::Context for Context {}
 
 pub struct Query;
 
+type BoxedQuery<'a> = 
+    diesel::query_builder::BoxedSelectStatement<'a, (sql_types::Integer,
+                                                     sql_types::Integer,
+                                                     sql_types::Date,
+                                                     sql_types::Float8,
+                                                     sql_types::Nullable<sql_types::Text>
+                                                     ),
+                                                     schema::sales::table, diesel::pg::Pg>;
+
+impl Sale {
+    fn searching_records<'a>(search: Option<NewSale>) -> BoxedQuery<'a> {
+        use diesel::QueryDsl;
+        use diesel::ExpressionMethods;
+        use crate::schema::sales::dsl::*;
+
+        let mut query = schema::sales::table.into_boxed::<diesel::pg::Pg>();
+
+        if let Some(sale) = search {
+            if let Some(sale_sale_date) = sale.sale_date {
+                query = query.filter(sale_date.eq(sale_sale_date));
+            }
+            if let Some(sale_bill_number) = sale.bill_number {
+                query = query.filter(bill_number.eq(sale_bill_number));
+            }
+        }
+
+        query
+    }
+}
+
 #[juniper::object(
     Context = Context,
 )]
 impl Query {
+
+    fn listSale(context: &Context, search: Option<NewSale>, limit: i32) 
+        -> FieldResult<ListSale> {
+            use diesel::{ QueryDsl, RunQueryDsl, ExpressionMethods, GroupedBy };
+            use crate::models::sale_product::SaleProduct;
+            let conn: &PgConnection = &context.conn;
+            let query = Sale::searching_records(search);
+
+            let query_sales: Vec<Sale> =
+                query
+                    .filter(sales::dsl::user_id.eq(context.user_id))
+                    .limit(limit.into())
+                    .load::<Sale>(conn)?;
+
+            let query_products = 
+                schema::products::table
+                    .inner_join(schema::sale_products::table)
+                    .select((PRODUCT_COLUMNS, 
+                            (schema::sale_products::id, 
+                             schema::sale_products::product_id, 
+                             schema::sale_products::sale_id, 
+                             schema::sale_products::amount,
+                             schema::sale_products::discount,
+                             schema::sale_products::tax,
+                             schema::sale_products::price,
+                             schema::sale_products::total)))
+                    .load::<(Product, SaleProduct)>(conn)?;
+
+            let query_sale_products = 
+                SaleProduct::belonging_to(&query_sales)
+                    .inner_join(schema::products::table)
+                    .select(((schema::sale_products::id, 
+                             schema::sale_products::product_id, 
+                             schema::sale_products::sale_id, 
+                             schema::sale_products::amount,
+                             schema::sale_products::discount,
+                             schema::sale_products::tax,
+                             schema::sale_products::price,
+                             schema::sale_products::total),
+                             PRODUCT_COLUMNS))
+                    .load::<(SaleProduct, Product)>(conn)?
+                    .grouped_by(&query_sales);
+
+            let tuple_full_sale: Vec<(Sale, Vec<(SaleProduct, Product)>)> = 
+                query_sales
+                    .into_iter()
+                    .zip(query_sale_products)
+                    .collect::<Vec<(Sale, Vec<(SaleProduct, Product)>)>>();
+            
+            let vec_full_sale = tuple_full_sale.iter().map (|tuple_sale| {
+                let full_sale_product = tuple_sale.1.iter().map(|tuple_sale_product| {
+                    FullSaleProduct {
+                        sale_product: tuple_sale_product.0.clone(),
+                        product: tuple_sale_product.1.clone()
+                    }
+                }).collect();
+                FullSale {
+                    sale: tuple_sale.0.clone(),
+                    sale_products: full_sale_product
+                }
+            }).collect();
+
+            Ok(ListSale { data: vec_full_sale })
+        }
 
     fn sale(context: &Context, sale_id: i32) -> FieldResult<FullSale> {
         use diesel::{ ExpressionMethods, QueryDsl, RunQueryDsl };
@@ -66,7 +178,25 @@ impl Query {
         
         let sale_products = 
             SaleProduct::belonging_to(&sale)
-                .load::<SaleProduct>(conn)?;
+                .inner_join(schema::products::table)
+                .select(((schema::sale_products::id, 
+                            schema::sale_products::product_id, 
+                            schema::sale_products::sale_id, 
+                            schema::sale_products::amount,
+                            schema::sale_products::discount,
+                            schema::sale_products::tax,
+                            schema::sale_products::price,
+                            schema::sale_products::total),
+                            PRODUCT_COLUMNS))
+                .load::<(SaleProduct, Product)>(conn)?
+                .iter()
+                .map(|tuple| {
+                    FullSaleProduct {
+                        sale_product: tuple.0.clone(),
+                        product: tuple.1.clone()
+                    }
+                })
+                .collect();
         Ok(FullSale{ sale, sale_products })
     }
 }
@@ -80,8 +210,7 @@ impl Mutation {
 
     fn createSale(context: &Context, param_new_sale: NewSale, param_new_sale_products: NewSaleProducts) 
         -> FieldResult<FullSale> {
-            use diesel::RunQueryDsl;
-            use diesel::Connection;
+            use diesel::{ RunQueryDsl, Connection, QueryDsl };
 
             let conn: &PgConnection = &context.conn;
 
@@ -99,32 +228,52 @@ impl Mutation {
                                 sales::dsl::id,
                                 sales::dsl::user_id,
                                 sales::dsl::sale_date,
-                                sales::dsl::total
+                                sales::dsl::total,
+                                sales::dsl::bill_number
                             )
                         )
                         .get_result::<Sale>(conn)?;
 
-                let sale_products: Result<Vec<SaleProduct>, _> =
+                let sale_products: Result<Vec<FullSaleProduct>, _> =
                     param_new_sale_products.data.into_iter().map(|param_new_sale_product| {
                         let new_sale_product = NewSaleProduct {
-                            sale_id: Some(sale.id), ..param_new_sale_product
+                            sale_id: Some(sale.id),
+                            ..param_new_sale_product.sale_product
                         };
-                        diesel::insert_into(schema::sale_products::table)
-                            .values(new_sale_product)
-                            .returning(
-                                (
-                                    sale_products::dsl::id,
-                                    sale_products::dsl::product_id,
-                                    sale_products::dsl::sale_id,
-                                    sale_products::dsl::amount,
-                                    sale_products::dsl::discount,
-                                    sale_products::dsl::tax,
-                                    sale_products::dsl::price,
-                                    sale_products::dsl::total
+                        let sale_product =
+                            diesel::insert_into(schema::sale_products::table)
+                                .values(new_sale_product)
+                                .returning(
+                                    (
+                                        sale_products::dsl::id,
+                                        sale_products::dsl::product_id,
+                                        sale_products::dsl::sale_id,
+                                        sale_products::dsl::amount,
+                                        sale_products::dsl::discount,
+                                        sale_products::dsl::tax,
+                                        sale_products::dsl::price,
+                                        sale_products::dsl::total
+                                    )
                                 )
+                                .get_result::<SaleProduct>(conn);
+
+                        if let Some(param_product_id) = param_new_sale_product.sale_product.product_id {
+                            let product = 
+                                schema::products::table
+                                    .select(PRODUCT_COLUMNS)
+                                    .find(param_product_id)
+                                    .first(conn);
+
+                            Ok(
+                                FullSaleProduct {
+                                     sale_product: sale_product?, 
+                                     product: product? 
+                                }
                             )
-                            .get_result::<SaleProduct>(conn)
-                        }).collect();
+                        } else {
+                            Err(MyStoreError::PGConnectionError)
+                        }
+                    }).collect();
 
                 Ok(FullSale{ sale, sale_products: sale_products? })
             })
@@ -152,11 +301,30 @@ impl Mutation {
                         .set(&param_sale)
                         .get_result::<Sale>(conn)?;
                 
-                let sale_products: Result<Vec<SaleProduct>, _> =
-                    param_sale_products.data.into_iter().map (|sale_product| {
-                        diesel::update(schema::sale_products::table)
-                            .set(&sale_product)
-                            .get_result::<SaleProduct>(conn)
+                let sale_products: Result<Vec<FullSaleProduct>, _> =
+                    param_sale_products.data.into_iter().map (|param_sale_product| {
+                        let sale_product =
+                            diesel::update(schema::sale_products::table)
+                                .set(&param_sale_product.sale_product)
+                                .get_result::<SaleProduct>(conn);
+
+                        if let Some(param_product_id) = param_sale_product.sale_product.product_id {
+                            let product = 
+                                schema::products::table
+                                    .select(PRODUCT_COLUMNS)
+                                    .find(param_product_id)
+                                    .first(conn);
+
+                            Ok(
+                                FullSaleProduct {
+                                     sale_product: sale_product?, 
+                                     product: product? 
+                                }
+                            )
+                        } else {
+                            Err(MyStoreError::PGConnectionError)
+                        }
+
                     }).collect();
 
                 Ok(FullSale{ sale, sale_products: sale_products? })

@@ -28,7 +28,7 @@ mod test{
     use ::mystore_lib::models::user::{ NewUser, User };
     use ::mystore_lib::models::sale::create_schema;
     use ::mystore_lib::graphql::{graphql, graphiql};
-    use ::mystore_lib::models::sale::{ FullSale, NewSale };
+    use ::mystore_lib::models::sale::{ ListSale, NewSale };
     use ::mystore_lib::models::sale_product::{ NewSaleProduct, NewSaleProducts };
 
     #[test]
@@ -92,6 +92,7 @@ mod test{
         let (csrf_token, request_cookie) = login(srv.borrow_mut());
 
         let new_shoe = NewProduct {
+            id: None,
             name: Some("Shoe".to_string()),
             stock: Some(10.4),
             cost: Some(1892),
@@ -100,6 +101,7 @@ mod test{
         };
 
         let new_hat = NewProduct {
+            id: None,
             name: Some("Hat".to_string()),
             stock: Some(15.0),
             cost: Some(2045),
@@ -108,6 +110,7 @@ mod test{
         };
 
         let new_pants = NewProduct {
+            id: None,
             name: Some("Pants".to_string()),
             stock: Some(25.0),
             cost: Some(3025),
@@ -122,7 +125,8 @@ mod test{
             id: None,
             user_id: None,
             sale_date: Some(NaiveDate::from_ymd(2019, 11, 12)),
-            total: Some(123.98)
+            total: Some(123.98),
+            bill_number: None
         };
 
         let new_sale_product = NewSaleProduct {
@@ -156,7 +160,8 @@ mod test{
             id: Some(sale_id),
             user_id: None,
             sale_date: Some(NaiveDate::from_ymd(2019, 11, 10)),
-            total: Some(123.98)
+            total: Some(123.98),
+            bill_number: None
         };
 
         let new_sale_product_hat = NewSaleProduct {
@@ -180,22 +185,49 @@ mod test{
         let sale = response_sale.get("data").unwrap().get("updateSale").unwrap();
         assert_eq!(sale.get("sale").unwrap().get("saleDate").unwrap(), "2019-11-10");
 
-        let response_sale_id_destroyed = 
-            destroy_a_sale(srv.borrow_mut(), 
-                           csrf_token.clone(),
-                           request_cookie.clone(),
-                           &sale_id);
+        let data_to_compare = json!({
+            "data": {
+                "listSale": {
+                    "data": [{
+                        "sale": {
+                            "id": sale_id,
+                            "saleDate": "2019-11-10",
+                            "total": 123.98,
+                        },
+                        "saleProducts": [{
+                            "product":
+                            {
+                                "name": "Hat",
+                            },
+                            "saleProduct":
+                            {
+                                "amount": 5.0,
+                                "price": 30,
+                            }
+                        }]
+                    }]
+                }
+            }
+        });
+
+        search_sales(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), data_to_compare);
+
+        //let response_sale_id_destroyed = 
+        //    destroy_a_sale(srv.borrow_mut(), 
+        //                   csrf_token.clone(),
+        //                   request_cookie.clone(),
+        //                   &sale_id);
         
-        let sale_id_destroyed: i32 =
-         serde_json::from_value(
-             response_sale_id_destroyed
-                 .get("data")
-                 .unwrap()
-                 .get("destroySale")
-                 .unwrap()
-                 .clone()
-         ).unwrap();
-        assert_eq!(sale_id, sale_id_destroyed);
+        //let sale_id_destroyed: i32 =
+        // serde_json::from_value(
+        //     response_sale_id_destroyed
+        //         .get("data")
+        //         .unwrap()
+        //         .get("destroySale")
+        //         .unwrap()
+        //         .clone()
+        // ).unwrap();
+        //assert_eq!(sale_id, sale_id_destroyed);
     }
 
     fn login(mut srv: RefMut<TestServerRuntime>) -> (HeaderValue, Cookie) {
@@ -273,14 +305,18 @@ mod test{
                                     total
                                 }}
                                 saleProducts {{
-                                    id
-                                    productId
-                                    saleId
-                                    amount
-                                    discount
-                                    tax
-                                    price
-                                    total
+                                    product {{
+                                        name
+                                    }}
+                                    saleProduct {{
+                                        id
+                                        productId
+                                        amount
+                                        discount
+                                        tax
+                                        price
+                                        total
+                                    }}
                                 }}
                             }}
                     }}
@@ -293,12 +329,15 @@ mod test{
                     "paramNewSaleProducts": {{
                         "data":
                             [{{
-                                "amount": {},
-                                "discount": {},
-                                "price": {},
-                                "productId": {},
-                                "tax": {},
-                                "total": {}
+                                "product": {{ }},
+                                "saleProduct": {{
+                                    "amount": {},
+                                    "discount": {},
+                                    "price": {},
+                                    "productId": {},
+                                    "tax": {},
+                                    "total": {}
+                                }}
                             }}]
                     }}
                 }}
@@ -316,6 +355,7 @@ mod test{
             srv
                 .block_on(request.send_body(query))
                 .unwrap();
+
 
         assert!(response.status().is_success());
 
@@ -342,14 +382,16 @@ mod test{
                                 total
                             }}
                             saleProducts {{
-                                id
-                                productId
-                                saleId
-                                amount
-                                discount
-                                tax
-                                price
-                                total
+                                product {{ name }}
+                                saleProduct {{
+                                    id
+                                    productId
+                                    amount
+                                    discount
+                                    tax
+                                    price
+                                    total
+                                }}
                             }}
                         }}
                     }}
@@ -408,19 +450,20 @@ mod test{
                             updateSale(paramSale: $paramSale, paramSaleProducts: $paramSaleProducts) {{
                                 sale {{
                                     id
-                                    userId
                                     saleDate
                                     total
                                 }}
                                 saleProducts {{
-                                    id
-                                    productId
-                                    saleId
-                                    amount
-                                    discount
-                                    tax
-                                    price
-                                    total
+                                    product {{ name }}
+                                    saleProduct {{
+                                        id
+                                        productId
+                                        amount
+                                        discount
+                                        tax
+                                        price
+                                        total
+                                    }}
                                 }}
                             }}
                     }}
@@ -434,13 +477,16 @@ mod test{
                     "paramSaleProducts": {{
                         "data":
                             [{{
-                                "id": null,
-                                "amount": {},
-                                "discount": {},
-                                "price": {},
-                                "productId": {},
-                                "tax": {},
-                                "total": {}
+                                "product": {{}},
+                                "saleProduct": 
+                                {{
+                                    "amount": {},
+                                    "discount": {},
+                                    "price": {},
+                                    "productId": {},
+                                    "tax": {},
+                                    "total": {}
+                                }}
                             }}]
                     }}
                 }}
@@ -502,67 +548,61 @@ mod test{
         serde_json::from_str(body).unwrap()
     }
 
-    fn products_index(mut srv: RefMut<TestServerRuntime>,
-                          csrf_token: HeaderValue,
-                          request_cookie: Cookie,
-                      mut data_to_compare: Vec<NewProduct>) {
+    fn search_sales(mut srv: RefMut<TestServerRuntime>,
+                        csrf_token: HeaderValue,
+                        request_cookie: Cookie,
+                        data_to_compare: Value) {
+
+        let query = format!(r#"
+            {{
+                "query": "
+                    query ListSale($search: NewSale!, $limit: Int!) {{
+                        listSale(search: $search, limit: $limit) {{
+                            data {{
+                                sale {{
+                                    id
+                                    saleDate
+                                    total
+                                }}
+                                saleProducts {{
+                                    product {{
+                                        name
+                                    }}
+                                    saleProduct {{
+                                        amount
+                                        price
+                                    }}
+                                }}
+                            }}
+                        }}
+                    }}
+                ",
+                "variables": {{
+                    "search": {{
+                        "saleDate": "2019-11-10"
+                    }},
+                    "limit": 10
+                }}
+            }}
+        "#).replace("\n", "");
 
         let request = srv
-                        .get("/products?search=&rank=100")
-                        .header("x-csrf-token", csrf_token.to_str().unwrap())
-                        .cookie(request_cookie);
+                          .post("/graphql")
+                          .header(header::CONTENT_TYPE, "application/json")
+                          .header("x-csrf-token", csrf_token.to_str().unwrap())
+                          .cookie(request_cookie)
+                          .timeout(std_duration::from_secs(600));
 
-        let mut response = srv.block_on(request.send()).unwrap();
+        let mut response =
+            srv
+                .block_on(request.send_body(query))
+                .unwrap();
         assert!(response.status().is_success());
-
-        assert_eq!(
-            response.headers().get(http::header::CONTENT_TYPE).unwrap(),
-            "application/json"
-        );
 
         let bytes = srv.block_on(response.body()).unwrap();
         let body = str::from_utf8(&bytes).unwrap();
-        let mut response_products: ProductList = serde_json::from_str(body).unwrap();
-        data_to_compare.sort_by_key(|product| product.name.clone());
-        response_products.0.sort_by_key(|product| product.0.name.clone());
-        let products: Vec<Product> =
-            response_products
-            .0
-            .iter()
-            .map (|product| product.0.clone())
-            .collect();
-        assert_eq!(data_to_compare, products);
-    }
-
-    fn search_products(mut srv: RefMut<TestServerRuntime>,
-                          csrf_token: HeaderValue,
-                          request_cookie: Cookie,
-                      mut data_to_compare: Vec<NewProduct>) {
-
-        let request = srv
-                        .get("/products?search=hats&rank=100")
-                        .header("x-csrf-token", csrf_token.to_str().unwrap())
-                        .cookie(request_cookie);
-
-        let mut response = srv.block_on(request.send()).unwrap();
-        assert!(response.status().is_success());
-
-        assert_eq!(
-            response.headers().get(http::header::CONTENT_TYPE).unwrap(),
-            "application/json"
-        );
-
-        let bytes = srv.block_on(response.body()).unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        let mut response_products: ProductList = serde_json::from_str(body).unwrap();
-        data_to_compare.sort_by_key(|product| product.name.clone());
-        response_products.0.sort_by_key(|product| product.0.name.clone());
-        let products: Vec<Product> =
-            response_products
-            .0
-            .iter()
-            .map (|product| product.0.clone())
-            .collect();
-        assert_eq!(data_to_compare, products);
+        let response_sales: Value = serde_json::from_str(body).unwrap();
+        dbg!(&response_sales);
+        assert_eq!(data_to_compare, response_sales);
     }
 }

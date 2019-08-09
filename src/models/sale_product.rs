@@ -1,6 +1,6 @@
 use crate::schema::sale_products;
 use crate::models::sale::Sale;
-use crate::models::product::Product;
+use crate::models::product::{ Product, NewProduct };
 
 #[derive(Identifiable, Associations, Queryable, Debug, Clone, PartialEq)]
 #[table_name="sale_products"]
@@ -19,6 +19,13 @@ pub struct SaleProduct {
     pub total: f64
 }
 
+#[derive(juniper::GraphQLObject)]
+#[derive(Debug, Clone)]
+pub struct FullSaleProduct {
+    pub sale_product: SaleProduct,
+    pub product: Product
+}
+
 #[derive(Insertable, Deserialize, Serialize, AsChangeset, Debug, Clone, PartialEq)]
 #[table_name="sale_products"]
 #[derive(juniper::GraphQLInputObject)]
@@ -35,4 +42,11 @@ pub struct NewSaleProduct {
 }
 
 #[derive(juniper::GraphQLInputObject)]
-pub struct NewSaleProducts{ pub data: Vec<NewSaleProduct> }
+#[derive(Debug, Clone)]
+pub struct FullNewSaleProduct {
+    pub sale_product: NewSaleProduct,
+    pub product: NewProduct
+}
+
+#[derive(juniper::GraphQLInputObject)]
+pub struct NewSaleProducts{ pub data: Vec<FullNewSaleProduct> }
