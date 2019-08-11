@@ -103,6 +103,7 @@ mod test{
         let (csrf_token, request_cookie) = login(srv.borrow_mut());
 
         let shoe = NewProduct {
+            id: None,
             name: Some("Shoe".to_string()),
             stock: Some(10.4),
             cost: Some(1892),
@@ -111,6 +112,7 @@ mod test{
         };
 
         let hat = NewProduct {
+            id: None,
             name: Some("Hat".to_string()),
             stock: Some(15.0),
             cost: Some(2045),
@@ -119,6 +121,7 @@ mod test{
         };
 
         let pants = NewProduct {
+            id: None,
             name: Some("Pants".to_string()),
             stock: Some(25.0),
             cost: Some(3025),
@@ -163,6 +166,7 @@ mod test{
                        &shoe_db.0,
                        shoe_db.clone().1);
         let updated_hat = NewProduct {
+            id: None,
             name: Some("Hat".to_string()),
             stock: Some(30.0),
             cost: Some(3025),

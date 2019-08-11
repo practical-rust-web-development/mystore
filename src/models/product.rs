@@ -8,6 +8,7 @@ use diesel::BelongingToDsl;
 pub struct ProductList(pub Vec<(Product, Vec<(PriceProduct, Price)>)>);
 
 #[derive(Identifiable, Queryable, Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(juniper::GraphQLObject)]
 #[table_name="products"]
 pub struct Product {
     pub id: i32,
@@ -18,7 +19,7 @@ pub struct Product {
     pub user_id: i32
 }
 
-type ProductColumns = (
+pub type ProductColumns = (
     products::id,
     products::name,
     products::stock,
@@ -27,7 +28,7 @@ type ProductColumns = (
     products::user_id
 );
 
-const PRODUCT_COLUMNS: ProductColumns = (
+pub const PRODUCT_COLUMNS: ProductColumns = (
     products::id,
     products::name,
     products::stock,
@@ -37,8 +38,10 @@ const PRODUCT_COLUMNS: ProductColumns = (
 );
 
 #[derive(Insertable, Deserialize, Serialize, AsChangeset, Debug, Clone, PartialEq)]
+#[derive(juniper::GraphQLInputObject)]
 #[table_name="products"]
 pub struct NewProduct {
+    pub id: Option<i32>,
     pub name: Option<String>,
     pub stock: Option<f64>,
     pub cost: Option<i32>,
