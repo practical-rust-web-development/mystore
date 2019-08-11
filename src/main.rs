@@ -14,6 +14,7 @@ use chrono::Duration;
 use ::mystore_lib::db_connection::establish_connection;
 
 use ::mystore_lib::models::sale::create_schema;
+use ::mystore_lib::graphql::graphql;
 
 fn main() {
     std::env::set_var("RUST_LOG", "actix_web=debug");
@@ -80,6 +81,9 @@ fn main() {
             web::resource("/auth")
                 .route(web::post().to_async(::mystore_lib::handlers::authentication::login))
                 .route(web::delete().to_async(::mystore_lib::handlers::authentication::logout))
+        )
+        .service(
+            web::resource("/graphql").route(web::post().to_async(graphql))
         )
     )
     .bind("127.0.0.1:8088").unwrap()
