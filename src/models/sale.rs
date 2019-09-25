@@ -9,6 +9,7 @@ use crate::schema::sale_products;
 use crate::db_connection::PgPooledConnection;
 use crate::models::product::{ Product, PRODUCT_COLUMNS };
 use crate::errors::MyStoreError;
+use crate::models::sale_state::SaleState;
 
 #[derive(Identifiable, Queryable, Debug, Clone, PartialEq)]
 #[table_name="sales"]
@@ -19,7 +20,8 @@ pub struct Sale {
     pub user_id: i32,
     pub sale_date: NaiveDate,
     pub total: f64,
-    pub bill_number: Option<String>
+    pub bill_number: Option<String>,
+    pub state: SaleState
 }
 
 #[derive(Insertable, Deserialize, Serialize, AsChangeset, Debug, Clone, PartialEq)]
@@ -31,7 +33,8 @@ pub struct NewSale {
     pub sale_date: Option<NaiveDate>,
     pub user_id: Option<i32>,
     pub total: Option<f64>,
-    pub bill_number: Option<String>
+    pub bill_number: Option<String>,
+    pub state: Option<SaleState>
 }
 
 use crate::models::sale_product::{ SaleProduct, NewSaleProduct, NewSaleProducts, FullSaleProduct,FullNewSaleProduct };
@@ -67,12 +70,15 @@ impl juniper::Context for Context {}
 
 pub struct Query;
 
+use crate::models::sale_state::SaleStateMapping;
+
 type BoxedQuery<'a> = 
     diesel::query_builder::BoxedSelectStatement<'a, (sql_types::Integer,
                                                      sql_types::Integer,
                                                      sql_types::Date,
                                                      sql_types::Float8,
-                                                     sql_types::Nullable<sql_types::Text>
+                                                     sql_types::Nullable<sql_types::Text>,
+                                                     SaleStateMapping
                                                      ),
                                                      schema::sales::table, diesel::pg::Pg>;
 
@@ -216,6 +222,7 @@ impl Mutation {
 
             let new_sale = NewSale {
                 user_id: Some(context.user_id),
+                state: Some(SaleState::Draft),
                 ..param_new_sale
             };
 
@@ -229,7 +236,8 @@ impl Mutation {
                                 sales::dsl::user_id,
                                 sales::dsl::sale_date,
                                 sales::dsl::total,
-                                sales::dsl::bill_number
+                                sales::dsl::bill_number,
+                                sales::dsl::state
                             )
                         )
                         .get_result::<Sale>(conn)?;

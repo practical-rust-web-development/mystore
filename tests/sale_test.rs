@@ -29,6 +29,7 @@ mod test{
     use ::mystore_lib::models::sale::create_schema;
     use ::mystore_lib::graphql::{graphql, graphiql};
     use ::mystore_lib::models::sale::{ ListSale, NewSale };
+    use ::mystore_lib::models::sale_state::SaleState;
     use ::mystore_lib::models::sale_product::{ NewSaleProduct, NewSaleProducts };
 
     #[test]
@@ -126,7 +127,8 @@ mod test{
             user_id: None,
             sale_date: Some(NaiveDate::from_ymd(2019, 11, 12)),
             total: Some(123.98),
-            bill_number: None
+            bill_number: None,
+            state: Some(SaleState::Draft)
         };
 
         let new_sale_product = NewSaleProduct {
@@ -161,7 +163,8 @@ mod test{
             user_id: None,
             sale_date: Some(NaiveDate::from_ymd(2019, 11, 10)),
             total: Some(123.98),
-            bill_number: None
+            bill_number: None,
+            state: Some(SaleState::Draft)
         };
 
         let new_sale_product_hat = NewSaleProduct {
@@ -355,7 +358,6 @@ mod test{
             srv
                 .block_on(request.send_body(query))
                 .unwrap();
-
 
         assert!(response.status().is_success());
 
