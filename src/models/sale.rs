@@ -287,6 +287,29 @@ impl Mutation {
             })
         }
 
+    fn approveSale(context: &Context, sale_id: i32) -> FieldResult<bool> {
+        use diesel::QueryDsl;
+        use diesel::RunQueryDsl;
+        use diesel::ExpressionMethods;
+        use crate::schema::sales::dsl;
+        use crate::models::sale_state::Event;
+
+        let conn: &PgConnection = &context.conn;
+        let sale_query_builder =
+            dsl::sales
+                .filter(dsl::user_id.eq(context.user_id))
+                .find(sale_id);
+
+        let sale = sale_query_builder.first::<Sale>(conn)?;
+        let sale_state = sale.state.next(Event::Approve)?;
+
+        let sale = 
+            diesel::update(sale_query_builder)
+                .set(dsl::state.eq(sale_state))
+                .get_result::<Sale>(conn)?;
+
+        Ok(true)
+    }
 
     fn updateSale(context: &Context, param_sale: NewSale, param_sale_products: NewSaleProducts) 
         -> FieldResult<FullSale> {
