@@ -10,6 +10,7 @@ use crate::db_connection::PgPooledConnection;
 use crate::models::product::{ Product, PRODUCT_COLUMNS };
 use crate::errors::MyStoreError;
 use crate::models::sale_state::SaleState;
+use crate::models::sale_state::Event;
 
 #[derive(Identifiable, Queryable, Debug, Clone, PartialEq)]
 #[table_name="sales"]
@@ -100,6 +101,28 @@ impl Sale {
         }
 
         query
+    }
+
+    fn set_state(context: &Context, sale_id: i32, event: Event) -> FieldResult<bool> {
+        use diesel::QueryDsl;
+        use diesel::RunQueryDsl;
+        use diesel::ExpressionMethods;
+        use crate::schema::sales::dsl;
+
+        let conn: &PgConnection = &context.conn;
+        let sale_query_builder =
+            dsl::sales
+                .filter(dsl::user_id.eq(context.user_id))
+                .find(sale_id);
+
+        let sale = sale_query_builder.first::<Sale>(conn)?;
+        let sale_state = sale.state.next(event)?;
+
+        diesel::update(sale_query_builder)
+            .set(dsl::state.eq(sale_state))
+            .get_result::<Sale>(conn)?;
+
+        Ok(true)
     }
 }
 
@@ -288,27 +311,22 @@ impl Mutation {
         }
 
     fn approveSale(context: &Context, sale_id: i32) -> FieldResult<bool> {
-        use diesel::QueryDsl;
-        use diesel::RunQueryDsl;
-        use diesel::ExpressionMethods;
-        use crate::schema::sales::dsl;
-        use crate::models::sale_state::Event;
+        Sale::set_state(context, sale_id, Event::Approve)
+    }
 
-        let conn: &PgConnection = &context.conn;
-        let sale_query_builder =
-            dsl::sales
-                .filter(dsl::user_id.eq(context.user_id))
-                .find(sale_id);
+    fn cancelSale(context: &Context, sale_id: i32) -> FieldResult<bool> {
+        //TODO: perform credit note or debit note
+        Sale::set_state(context, sale_id, Event::Cancel)
+    }
 
-        let sale = sale_query_builder.first::<Sale>(conn)?;
-        let sale_state = sale.state.next(Event::Approve)?;
+    fn paySale(context: &Context, sale_id: i32) -> FieldResult<bool> {
+        //TODO: perform collection
+        Sale::set_state(context, sale_id, Event::Pay)
+    }
 
-        let sale = 
-            diesel::update(sale_query_builder)
-                .set(dsl::state.eq(sale_state))
-                .get_result::<Sale>(conn)?;
-
-        Ok(true)
+    fn partiallyPaySale(context: &Context, sale_id: i32) -> FieldResult<bool> {
+        //TODO: perform collection
+        Sale::set_state(context, sale_id, Event::PartiallyPay)
     }
 
     fn updateSale(context: &Context, param_sale: NewSale, param_sale_products: NewSaleProducts) 
@@ -317,6 +335,7 @@ impl Mutation {
             use diesel::RunQueryDsl;
             use diesel::ExpressionMethods;
             use diesel::Connection;
+            use diesel::BoolExpressionMethods;
             use crate::schema::sales::dsl;
 
             let conn: &PgConnection = &context.conn;
@@ -327,7 +346,10 @@ impl Mutation {
             conn.transaction(|| {
                 let sale = 
                     diesel::update(dsl::sales
-                                       .filter(dsl::user_id.eq(context.user_id))
+                                       .filter(
+                                           dsl::user_id.eq(context.user_id)
+                                               .and(dsl::state.eq(SaleState::Draft))
+                                        )
                                        .find(sale_id))
                         .set(&param_sale)
                         .get_result::<Sale>(conn)?;
