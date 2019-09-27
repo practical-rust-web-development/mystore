@@ -216,7 +216,6 @@ mod test{
         search_sales(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), data_to_compare);
 
         let response_state = cancel_a_sale(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), sale_id);
-        dbg!(&response_state);
         let errors: Vec<Value> =
             serde_json::from_value(
                 response_state
@@ -236,7 +235,11 @@ mod test{
                 ).unwrap();
         assert_eq!(state_result, "You can\'t Cancel from Draft state".to_string());
 
-        let response_state = approve_a_sale(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), sale_id);
+        let response_state =
+            approve_a_sale(srv.borrow_mut(),
+                           csrf_token.clone(),
+                           request_cookie.clone(),
+                           sale_id);
         let state_result: bool = 
             serde_json::from_value(
                 response_state
@@ -248,22 +251,49 @@ mod test{
                 ).unwrap();
         assert!(state_result);
 
-        let response_sale_id_destroyed = 
+        let response_sale_destroyed = 
             destroy_a_sale(srv.borrow_mut(), 
                            csrf_token.clone(),
                            request_cookie.clone(),
                            &sale_id);
         
-        let sale_id_destroyed: i32 =
-         serde_json::from_value(
-             response_sale_id_destroyed
-                 .get("data")
-                 .unwrap()
-                 .get("destroySale")
-                 .unwrap()
-                 .clone()
-         ).unwrap();
-        assert_eq!(sale_id, sale_id_destroyed);
+        let destroyed: bool =
+            serde_json::from_value(
+                response_sale_destroyed
+                    .get("data")
+                    .unwrap()
+                    .get("destroySale")
+                    .unwrap()
+                    .clone()
+            ).unwrap();
+        assert!(!destroyed);
+
+        let response_sale = 
+            create_a_sale(srv.borrow_mut(), 
+                        csrf_token.clone(),
+                        request_cookie.clone(),
+                        &new_sale,
+                        vec![&new_sale_product]);
+
+        let sale = response_sale.get("data").unwrap().get("createSale").unwrap();
+        let sale_id: i32 = serde_json::from_value(sale.get("sale").unwrap().get("id").unwrap().clone()).unwrap();
+
+        let response_sale_destroyed = 
+            destroy_a_sale(srv.borrow_mut(), 
+                           csrf_token.clone(),
+                           request_cookie.clone(),
+                           &sale_id);
+        
+        let destroyed: bool =
+            serde_json::from_value(
+                response_sale_destroyed
+                    .get("data")
+                    .unwrap()
+                    .get("destroySale")
+                    .unwrap()
+                    .clone()
+            ).unwrap();
+        assert!(destroyed);
     }
 
     fn login(mut srv: RefMut<TestServerRuntime>) -> (HeaderValue, Cookie) {

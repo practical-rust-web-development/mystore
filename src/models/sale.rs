@@ -405,20 +405,26 @@ impl Mutation {
         })
     }
 
-    fn destroySale(context: &Context, sale_id: i32) -> FieldResult<i32> {
+    fn destroySale(context: &Context, sale_id: i32) -> FieldResult<bool> {
         use crate::schema::sales::dsl;
+        use diesel::BoolExpressionMethods;
         use diesel::ExpressionMethods;
         use diesel::QueryDsl;
         use diesel::RunQueryDsl;
 
         let conn: &PgConnection = &context.conn;
-        diesel::delete(
-            dsl::sales
-                .filter(dsl::user_id.eq(context.user_id))
-                .find(sale_id),
-        )
-        .execute(conn)?;
-        Ok(sale_id)
+        let deleted_rows = 
+            diesel::delete(
+                dsl::sales
+                    .filter(
+                        dsl::user_id
+                            .eq(context.user_id)
+                            .and(dsl::state.eq(SaleState::Draft)),
+                    )
+                    .find(sale_id),
+            )
+            .execute(conn)?;
+        Ok(deleted_rows == 1)
     }
 }
 
