@@ -369,6 +369,7 @@ mod test{
                                     userId
                                     saleDate
                                     total
+                                    state
                                 }}
                                 saleProducts {{
                                     product {{
@@ -445,6 +446,7 @@ mod test{
                                 userId
                                 saleDate
                                 total
+                                state
                             }}
                             saleProducts {{
                                 product {{ name }}
