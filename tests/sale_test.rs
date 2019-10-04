@@ -29,6 +29,7 @@ mod test{
     use ::mystore_lib::models::sale::create_schema;
     use ::mystore_lib::graphql::{graphql, graphiql};
     use ::mystore_lib::models::sale::{ ListSale, NewSale };
+    use ::mystore_lib::models::sale_state::SaleState;
     use ::mystore_lib::models::sale_product::{ NewSaleProduct, NewSaleProducts };
 
     #[test]
@@ -126,7 +127,8 @@ mod test{
             user_id: None,
             sale_date: Some(NaiveDate::from_ymd(2019, 11, 12)),
             total: Some(123.98),
-            bill_number: None
+            bill_number: None,
+            state: Some(SaleState::Draft)
         };
 
         let new_sale_product = NewSaleProduct {
@@ -161,7 +163,8 @@ mod test{
             user_id: None,
             sale_date: Some(NaiveDate::from_ymd(2019, 11, 10)),
             total: Some(123.98),
-            bill_number: None
+            bill_number: None,
+            state: Some(SaleState::Draft)
         };
 
         let new_sale_product_hat = NewSaleProduct {
@@ -212,22 +215,85 @@ mod test{
 
         search_sales(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), data_to_compare);
 
-        let response_sale_id_destroyed = 
+        let response_state = cancel_a_sale(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), sale_id);
+        let errors: Vec<Value> =
+            serde_json::from_value(
+                response_state
+                    .get("errors")
+                    .unwrap()
+                    .clone()
+            ).unwrap();
+
+        let state_result: String = 
+            serde_json::from_value(
+                errors
+                    .first()
+                    .unwrap()
+                    .get("message")
+                    .unwrap()
+                    .clone()
+                ).unwrap();
+        assert_eq!(state_result, "You can\'t Cancel from Draft state".to_string());
+
+        let response_state =
+            approve_a_sale(srv.borrow_mut(),
+                           csrf_token.clone(),
+                           request_cookie.clone(),
+                           sale_id);
+        let state_result: bool = 
+            serde_json::from_value(
+                response_state
+                    .get("data")
+                    .unwrap()
+                    .get("approveSale")
+                    .unwrap()
+                    .clone()
+                ).unwrap();
+        assert!(state_result);
+
+        let response_sale_destroyed = 
             destroy_a_sale(srv.borrow_mut(), 
                            csrf_token.clone(),
                            request_cookie.clone(),
                            &sale_id);
         
-        let sale_id_destroyed: i32 =
-         serde_json::from_value(
-             response_sale_id_destroyed
-                 .get("data")
-                 .unwrap()
-                 .get("destroySale")
-                 .unwrap()
-                 .clone()
-         ).unwrap();
-        assert_eq!(sale_id, sale_id_destroyed);
+        let destroyed: bool =
+            serde_json::from_value(
+                response_sale_destroyed
+                    .get("data")
+                    .unwrap()
+                    .get("destroySale")
+                    .unwrap()
+                    .clone()
+            ).unwrap();
+        assert!(!destroyed);
+
+        let response_sale = 
+            create_a_sale(srv.borrow_mut(), 
+                        csrf_token.clone(),
+                        request_cookie.clone(),
+                        &new_sale,
+                        vec![&new_sale_product]);
+
+        let sale = response_sale.get("data").unwrap().get("createSale").unwrap();
+        let sale_id: i32 = serde_json::from_value(sale.get("sale").unwrap().get("id").unwrap().clone()).unwrap();
+
+        let response_sale_destroyed = 
+            destroy_a_sale(srv.borrow_mut(), 
+                           csrf_token.clone(),
+                           request_cookie.clone(),
+                           &sale_id);
+        
+        let destroyed: bool =
+            serde_json::from_value(
+                response_sale_destroyed
+                    .get("data")
+                    .unwrap()
+                    .get("destroySale")
+                    .unwrap()
+                    .clone()
+            ).unwrap();
+        assert!(destroyed);
     }
 
     fn login(mut srv: RefMut<TestServerRuntime>) -> (HeaderValue, Cookie) {
@@ -303,6 +369,7 @@ mod test{
                                     userId
                                     saleDate
                                     total
+                                    state
                                 }}
                                 saleProducts {{
                                     product {{
@@ -356,7 +423,6 @@ mod test{
                 .block_on(request.send_body(query))
                 .unwrap();
 
-
         assert!(response.status().is_success());
 
         let bytes = srv.block_on(response.body()).unwrap();
@@ -380,6 +446,7 @@ mod test{
                                 userId
                                 saleDate
                                 total
+                                state
                             }}
                             saleProducts {{
                                 product {{ name }}
@@ -513,6 +580,78 @@ mod test{
         serde_json::from_str(body).unwrap()
     }
 
+    fn approve_a_sale(mut srv: RefMut<TestServerRuntime>,
+                         csrf_token: HeaderValue,
+                         request_cookie: Cookie,
+                         id: i32) -> Value {
+
+        let query = format!(r#"
+            {{
+                "query": "
+                    mutation ApproveSale($saleId: Int!) {{
+                        approveSale(saleId: $saleId)
+                    }}
+                ",
+                "variables": {{
+                    "saleId": {}
+                }}
+            }}
+        "#, id).replace("\n", "");
+
+        let request = srv
+                          .post("/graphql")
+                          .header(header::CONTENT_TYPE, "application/json")
+                          .header("x-csrf-token", csrf_token.to_str().unwrap())
+                          .cookie(request_cookie)
+                          .timeout(std_duration::from_secs(600));
+
+        let mut response =
+            srv
+                .block_on(request.send_body(query))
+                .unwrap();
+        assert!(response.status().is_success());
+
+        let bytes = srv.block_on(response.body()).unwrap();
+        let body = str::from_utf8(&bytes).unwrap();
+        serde_json::from_str(body).unwrap()
+    }
+
+    fn cancel_a_sale(mut srv: RefMut<TestServerRuntime>,
+                         csrf_token: HeaderValue,
+                         request_cookie: Cookie,
+                         id: i32) -> Value {
+
+        let query = format!(r#"
+            {{
+                "query": "
+                    mutation CancelSale($saleId: Int!) {{
+                        cancelSale(saleId: $saleId)
+                    }}
+                ",
+                "variables": {{
+                    "saleId": {}
+                }}
+            }}
+        "#, id).replace("\n", "");
+
+        let request = srv
+                          .post("/graphql")
+                          .header(header::CONTENT_TYPE, "application/json")
+                          .header("x-csrf-token", csrf_token.to_str().unwrap())
+                          .cookie(request_cookie)
+                          .timeout(std_duration::from_secs(600));
+
+        let mut response =
+            srv
+                .block_on(request.send_body(query))
+                .unwrap();
+        assert!(response.status().is_success());
+
+        let bytes = srv.block_on(response.body()).unwrap();
+        let body = str::from_utf8(&bytes).unwrap();
+        serde_json::from_str(body).unwrap()
+    }
+
     fn destroy_a_sale(mut srv: RefMut<TestServerRuntime>,
                           csrf_token: HeaderValue,
                           request_cookie: Cookie,
@@ -602,7 +741,6 @@ mod test{
         let bytes = srv.block_on(response.body()).unwrap();
         let body = str::from_utf8(&bytes).unwrap();
         let response_sales: Value = serde_json::from_str(body).unwrap();
-        dbg!(&response_sales);
         assert_eq!(data_to_compare, response_sales);
     }
 }

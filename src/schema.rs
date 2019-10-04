@@ -48,12 +48,19 @@ table! {
 }
 
 table! {
+    use diesel::sql_types::Int4;
+    use diesel::sql_types::VarChar;
+    use diesel::sql_types::Float8;
+    use diesel::sql_types::Nullable;
+    use diesel::sql_types::Date;
+    use crate::models::sale_state::SaleStateMapping;
     sales (id) {
         id -> Int4,
         user_id -> Int4,
         sale_date -> Date,
         total -> Float8,
-        bill_number -> Nullable<Varchar>,
+        bill_number -> Nullable<VarChar>,
+        state -> SaleStateMapping,
     }
 }
 
