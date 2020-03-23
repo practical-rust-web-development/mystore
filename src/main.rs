@@ -1,9 +1,7 @@
 #[macro_use]
 extern crate dotenv_codegen;
 extern crate itertools;
-#[macro_use]
 extern crate juniper;
-#[macro_use]
 extern crate diesel_derive_enum;
 
 use actix_web::{App, HttpServer, web};

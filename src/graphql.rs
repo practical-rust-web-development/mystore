@@ -1,11 +1,10 @@
 use std::sync::Arc;
-use std::ops::Deref;
 use actix_web::{web, Error, HttpResponse};
 use actix::prelude::Future;
 use juniper::http::graphiql::graphiql_source;
 use juniper::http::GraphQLRequest;
 
-use crate::models::sale::{create_schema, Schema, Context, create_context};
+use crate::models::sale::{Schema, create_context};
 use crate::handlers::LoggedUser;
 use crate::db_connection::PgPool;
 use crate::serde::ser::Error as SerdeError;

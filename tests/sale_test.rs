@@ -24,13 +24,13 @@ mod test{
     use crate::common::db_connection::establish_connection;
     use std::cell::{ RefCell, RefMut };
 
-    use ::mystore_lib::models::product::{ Product, NewProduct, ProductList };
+    use ::mystore_lib::models::product::{ Product, NewProduct };
     use ::mystore_lib::models::user::{ NewUser, User };
     use ::mystore_lib::models::sale::create_schema;
     use ::mystore_lib::graphql::{graphql, graphiql};
-    use ::mystore_lib::models::sale::{ ListSale, NewSale };
+    use ::mystore_lib::models::sale::NewSale;
     use ::mystore_lib::models::sale_state::SaleState;
-    use ::mystore_lib::models::sale_product::{ NewSaleProduct, NewSaleProducts };
+    use ::mystore_lib::models::sale_product::NewSaleProduct;
 
     #[test]
     fn test() {
@@ -110,7 +110,7 @@ mod test{
             user_id: Some(user.id)
         };
 
-        let new_pants = NewProduct {
+        let _new_pants = NewProduct {
             id: None,
             name: Some("Pants".to_string()),
             stock: Some(25.0),
