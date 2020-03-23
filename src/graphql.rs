@@ -4,7 +4,8 @@ use actix::prelude::Future;
 use juniper::http::graphiql::graphiql_source;
 use juniper::http::GraphQLRequest;
 
-use crate::models::sale::{Schema, create_context};
+use crate::models::create_context;
+use crate::models::sale::SaleSchema;
 use crate::handlers::LoggedUser;
 use crate::db_connection::PgPool;
 use crate::serde::ser::Error as SerdeError;
@@ -17,7 +18,7 @@ pub fn graphiql() -> HttpResponse {
 }
 
 pub fn graphql(
-    st: web::Data<Arc<Schema>>,
+    st: web::Data<Arc<SaleSchema>>,
     data: web::Json<GraphQLRequest>,
     user: LoggedUser,
     pool: web::Data<PgPool>

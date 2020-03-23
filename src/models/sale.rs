@@ -1,4 +1,3 @@
-use crate::db_connection::PgPooledConnection;
 use crate::errors::MyStoreError;
 use crate::models::product::{Product, PRODUCT_COLUMNS};
 use crate::models::sale_state::Event;
@@ -11,6 +10,7 @@ use diesel::sql_types;
 use diesel::BelongingToDsl;
 use diesel::PgConnection;
 use juniper::FieldResult;
+use crate::models::Context;
 
 #[derive(Identifiable, Queryable, Debug, Clone, PartialEq)]
 #[table_name = "sales"]
@@ -59,16 +59,7 @@ pub struct ListSale {
     pub data: Vec<FullSale>,
 }
 
-use std::sync::Arc;
-
-pub struct Context {
-    pub user_id: i32,
-    pub conn: Arc<PgPooledConnection>,
-}
-
-impl juniper::Context for Context {}
-
-pub struct Query;
+pub struct SaleQuery;
 
 use crate::models::sale_state::SaleStateMapping;
 
@@ -131,7 +122,7 @@ impl Sale {
 #[juniper::object(
     Context = Context,
 )]
-impl Query {
+impl SaleQuery {
     fn listSale(context: &Context, search: Option<NewSale>, limit: i32) -> FieldResult<ListSale> {
         use crate::models::sale_product::SaleProduct;
         use diesel::{ExpressionMethods, GroupedBy, QueryDsl, RunQueryDsl};
@@ -244,12 +235,12 @@ impl Query {
     }
 }
 
-pub struct Mutation;
+pub struct SaleMutation;
 
 #[juniper::object(
     Context = Context,
 )]
-impl Mutation {
+impl SaleMutation {
     fn createSale(
         context: &Context,
         param_new_sale: NewSale,
@@ -428,15 +419,8 @@ impl Mutation {
     }
 }
 
-pub type Schema = juniper::RootNode<'static, Query, Mutation>;
+pub type SaleSchema = juniper::RootNode<'static, SaleQuery, SaleMutation>;
 
-pub fn create_schema() -> Schema {
-    Schema::new(Query {}, Mutation {})
-}
-
-pub fn create_context(logged_user_id: i32, pg_pool: PgPooledConnection) -> Context {
-    Context {
-        user_id: logged_user_id,
-        conn: Arc::new(pg_pool),
-    }
+pub fn create_schema() -> SaleSchema {
+    SaleSchema::new(SaleQuery {}, SaleMutation {})
 }
