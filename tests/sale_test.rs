@@ -26,7 +26,7 @@ mod test{
 
     use ::mystore_lib::models::product::{ Product, NewProduct };
     use ::mystore_lib::models::user::{ NewUser, User };
-    use ::mystore_lib::models::sale::create_schema;
+    use ::mystore_lib::graphql::schema::create_schema;
     use ::mystore_lib::graphql::{graphql, graphiql};
     use ::mystore_lib::models::sale::NewSale;
     use ::mystore_lib::models::sale_state::SaleState;

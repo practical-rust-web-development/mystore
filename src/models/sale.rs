@@ -1,6 +1,5 @@
 use crate::errors::MyStoreError;
 use crate::models::product::{Product, PRODUCT_COLUMNS};
-use crate::models::sale_state::Event;
 use crate::models::sale_state::SaleState;
 use crate::schema;
 use crate::schema::sale_products;
@@ -11,6 +10,7 @@ use diesel::BelongingToDsl;
 use diesel::PgConnection;
 use juniper::FieldResult;
 use crate::models::Context;
+use crate::models::sale_state::Event;
 
 #[derive(Identifiable, Queryable, Debug, Clone, PartialEq)]
 #[table_name = "sales"]
@@ -59,8 +59,6 @@ pub struct ListSale {
     pub data: Vec<FullSale>,
 }
 
-pub struct SaleQuery;
-
 use crate::models::sale_state::SaleStateMapping;
 
 type BoxedQuery<'a> = diesel::query_builder::BoxedSelectStatement<
@@ -97,7 +95,7 @@ impl Sale {
         query
     }
 
-    fn set_state(context: &Context, sale_id: i32, event: Event) -> FieldResult<bool> {
+    pub fn set_state(context: &Context, sale_id: i32, event: Event) -> FieldResult<bool> {
         use crate::schema::sales::dsl;
         use diesel::ExpressionMethods;
         use diesel::QueryDsl;
@@ -117,14 +115,8 @@ impl Sale {
 
         Ok(true)
     }
-}
 
-#[juniper::object(
-    Context = Context,
-)]
-impl SaleQuery {
-    fn listSale(context: &Context, search: Option<NewSale>, limit: i32) -> FieldResult<ListSale> {
-        use crate::models::sale_product::SaleProduct;
+    pub fn list_sale(context: &Context, search: Option<NewSale>, limit: i32) -> FieldResult<ListSale> {
         use diesel::{ExpressionMethods, GroupedBy, QueryDsl, RunQueryDsl};
         let conn: &PgConnection = &context.conn;
         let query = Sale::searching_records(search);
@@ -133,23 +125,6 @@ impl SaleQuery {
             .filter(sales::dsl::user_id.eq(context.user_id))
             .limit(limit.into())
             .load::<Sale>(conn)?;
-
-        let query_products = schema::products::table
-            .inner_join(schema::sale_products::table)
-            .select((
-                PRODUCT_COLUMNS,
-                (
-                    schema::sale_products::id,
-                    schema::sale_products::product_id,
-                    schema::sale_products::sale_id,
-                    schema::sale_products::amount,
-                    schema::sale_products::discount,
-                    schema::sale_products::tax,
-                    schema::sale_products::price,
-                    schema::sale_products::total,
-                ),
-            ))
-            .load::<(Product, SaleProduct)>(conn)?;
 
         let query_sale_products = SaleProduct::belonging_to(&query_sales)
             .inner_join(schema::products::table)
@@ -197,7 +172,7 @@ impl SaleQuery {
         })
     }
 
-    fn sale(context: &Context, sale_id: i32) -> FieldResult<FullSale> {
+    pub fn sale(context: &Context, sale_id: i32) -> FieldResult<FullSale> {
         use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 
         let conn: &PgConnection = &context.conn;
@@ -233,15 +208,8 @@ impl SaleQuery {
             sale_products,
         })
     }
-}
 
-pub struct SaleMutation;
-
-#[juniper::object(
-    Context = Context,
-)]
-impl SaleMutation {
-    fn createSale(
+    pub fn create_sale(
         context: &Context,
         param_new_sale: NewSale,
         param_new_sale_products: NewSaleProducts,
@@ -314,26 +282,7 @@ impl SaleMutation {
         })
     }
 
-    fn approveSale(context: &Context, sale_id: i32) -> FieldResult<bool> {
-        Sale::set_state(context, sale_id, Event::Approve)
-    }
-
-    fn cancelSale(context: &Context, sale_id: i32) -> FieldResult<bool> {
-        //TODO: perform credit note or debit note
-        Sale::set_state(context, sale_id, Event::Cancel)
-    }
-
-    fn paySale(context: &Context, sale_id: i32) -> FieldResult<bool> {
-        //TODO: perform collection
-        Sale::set_state(context, sale_id, Event::Pay)
-    }
-
-    fn partiallyPaySale(context: &Context, sale_id: i32) -> FieldResult<bool> {
-        //TODO: perform collection
-        Sale::set_state(context, sale_id, Event::PartiallyPay)
-    }
-
-    fn updateSale(
+    pub fn update_sale(
         context: &Context,
         param_sale: NewSale,
         param_sale_products: NewSaleProducts,
@@ -396,7 +345,7 @@ impl SaleMutation {
         })
     }
 
-    fn destroySale(context: &Context, sale_id: i32) -> FieldResult<bool> {
+    pub fn destroy_sale(context: &Context, sale_id: i32) -> FieldResult<bool> {
         use crate::schema::sales::dsl;
         use diesel::BoolExpressionMethods;
         use diesel::ExpressionMethods;
@@ -417,10 +366,4 @@ impl SaleMutation {
             .execute(conn)?;
         Ok(deleted_rows == 1)
     }
-}
-
-pub type SaleSchema = juniper::RootNode<'static, SaleQuery, SaleMutation>;
-
-pub fn create_schema() -> SaleSchema {
-    SaleSchema::new(SaleQuery {}, SaleMutation {})
 }

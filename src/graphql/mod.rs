@@ -1,11 +1,15 @@
+pub mod query;
+pub mod mutation;
+pub mod schema;
+
 use std::sync::Arc;
 use actix_web::{web, Error, HttpResponse};
 use actix::prelude::Future;
 use juniper::http::graphiql::graphiql_source;
 use juniper::http::GraphQLRequest;
+use schema::Schema;
 
 use crate::models::create_context;
-use crate::models::sale::SaleSchema;
 use crate::handlers::LoggedUser;
 use crate::db_connection::PgPool;
 use crate::serde::ser::Error as SerdeError;
@@ -18,7 +22,7 @@ pub fn graphiql() -> HttpResponse {
 }
 
 pub fn graphql(
-    st: web::Data<Arc<SaleSchema>>,
+    st: web::Data<Arc<Schema>>,
     data: web::Json<GraphQLRequest>,
     user: LoggedUser,
     pool: web::Data<PgPool>

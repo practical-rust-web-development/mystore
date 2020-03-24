@@ -13,7 +13,7 @@ use csrf_token::CsrfTokenGenerator;
 use chrono::Duration;
 use ::mystore_lib::db_connection::establish_connection;
 
-use ::mystore_lib::models::sale::create_schema;
+use ::mystore_lib::graphql::schema::create_schema;
 use ::mystore_lib::graphql::graphql;
 
 fn main() {
