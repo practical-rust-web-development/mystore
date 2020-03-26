@@ -213,33 +213,42 @@ impl Product {
     }
 
     pub fn update_product(
-        id: i32,
-        param_user_id: i32,
+        context: &Context,
         new_product: NewProduct,
         prices: NewPriceProductsToUpdate,
-        connection: &PgConnection,
-    ) -> Result<(), MyStoreError> {
+    ) -> FieldResult<FullProduct> {
         use crate::schema::products::dsl;
         use diesel::ExpressionMethods;
         use diesel::QueryDsl;
         use diesel::RunQueryDsl;
+
+        let connection: &PgConnection = &context.conn;
+        let param_user_id = context.user_id;
+        let product_id = new_product
+            .id
+            .ok_or(diesel::result::Error::QueryBuilderError(
+                "missing id".into(),
+            ))?;
 
         let new_product_to_replace = NewProduct {
             user_id: Some(param_user_id),
             ..new_product.clone()
         };
 
-        diesel::update(
-            dsl::products
-                .filter(dsl::user_id.eq(param_user_id))
-                .find(id),
-        )
-        .set(new_product_to_replace)
-        .execute(connection)?;
+        let product =
+            diesel::update(
+                dsl::products
+                    .filter(dsl::user_id.eq(param_user_id))
+                    .find(product_id),
+            )
+            .set(&new_product_to_replace)
+            .returning(PRODUCT_COLUMNS)
+            .get_result::<Product>(connection)?;
 
-        PriceProductToUpdate::batch_update(prices, id, param_user_id, connection)?;
+        let price_products =
+            PriceProductToUpdate::batch_update(prices, product_id, param_user_id, connection)?;
 
-        Ok(())
+        Ok(FullProduct{product, price_products})
     }
 }
 

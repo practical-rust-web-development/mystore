@@ -58,4 +58,12 @@ impl Mutation {
     ) -> FieldResult<FullProduct> {
         Product::create_product(context, param_new_product, param_new_price_products)
     }
+
+    fn updateProduct(
+        context: &Context,
+        param_product: NewProduct,
+        param_price_products: NewPriceProductsToUpdate,
+    ) -> FieldResult<FullProduct> {
+        Product::update_product(context, param_product, param_price_products)
+    }
 }
