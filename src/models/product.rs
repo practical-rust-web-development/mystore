@@ -69,7 +69,6 @@ pub struct NewProduct {
     pub user_id: Option<i32>,
 }
 
-use crate::errors::MyStoreError;
 use crate::models::price::PriceProductToUpdate;
 
 impl Product {
@@ -194,22 +193,23 @@ impl Product {
     }
 
     pub fn destroy_product(
-        id: &i32,
-        param_user_id: i32,
-        connection: &PgConnection,
-    ) -> Result<(), MyStoreError> {
+        context: &Context,
+        id: i32
+    ) -> FieldResult<bool> {
         use crate::schema::products::dsl;
         use diesel::ExpressionMethods;
         use diesel::QueryDsl;
         use diesel::RunQueryDsl;
 
+        let connection: &PgConnection = &context.conn;
+        let param_user_id = context.user_id;
         diesel::delete(
             dsl::products
                 .filter(dsl::user_id.eq(param_user_id))
                 .find(id),
         )
         .execute(connection)?;
-        Ok(())
+        Ok(true)
     }
 
     pub fn update_product(

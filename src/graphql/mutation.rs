@@ -66,4 +66,8 @@ impl Mutation {
     ) -> FieldResult<FullProduct> {
         Product::update_product(context, param_product, param_price_products)
     }
+
+    fn destroyProduct(context: &Context, product_id: i32) -> FieldResult<bool> {
+        Product::destroy_product(context, product_id)
+    }
 }
