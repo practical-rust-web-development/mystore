@@ -1,4 +1,4 @@
-use crate::models::price::{Price, PriceProduct, FullPriceProduct};
+use crate::models::price::{Price, PriceProduct, FullPriceProduct, NewPriceProductsToUpdate};
 use crate::schema::products;
 use diesel::BelongingToDsl;
 use diesel::PgConnection;
@@ -137,8 +137,8 @@ impl Product {
     pub fn create_product(
         context: &Context,
         param_new_product: NewProduct,
-        prices: Vec<PriceProductToUpdate>,
-    ) -> Result<(Product, Vec<PriceProduct>), MyStoreError> {
+        prices: NewPriceProductsToUpdate,
+    ) -> FieldResult<FullProduct> {
         use diesel::RunQueryDsl;
 
         let connection: &PgConnection = &context.conn;
@@ -157,7 +157,7 @@ impl Product {
         let price_products =
             PriceProductToUpdate::batch_update(prices, product.id, user_id, connection)?;
 
-        Ok((product, price_products))
+        Ok(FullProduct{product, price_products})
     }
 
     pub fn product(context: &Context, product_id: i32) -> FieldResult<FullProduct> {
@@ -216,7 +216,7 @@ impl Product {
         id: i32,
         param_user_id: i32,
         new_product: NewProduct,
-        prices: Vec<PriceProductToUpdate>,
+        prices: NewPriceProductsToUpdate,
         connection: &PgConnection,
     ) -> Result<(), MyStoreError> {
         use crate::schema::products::dsl;

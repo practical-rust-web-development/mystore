@@ -54,8 +54,11 @@ pub struct NewPriceProduct {
     pub amount: Option<i32>
 }
 
+#[derive(juniper::GraphQLInputObject)]
+pub struct NewPriceProductsToUpdate{ pub data: Vec<PriceProductToUpdate> }
+
 #[derive(Serialize, Deserialize, Clone)]
-#[derive(juniper::GraphQLObject)]
+#[derive(juniper::GraphQLInputObject)]
 pub struct PriceProductToUpdate {
     pub price_product: NewPriceProduct,
     pub to_delete: bool
@@ -64,8 +67,8 @@ pub struct PriceProductToUpdate {
 use diesel::PgConnection;
 
 impl PriceProductToUpdate {
-    pub fn batch_update(records: Vec<Self>, param_product_id: i32, param_user_id: i32, connection: &PgConnection) ->
-        Result<Vec<PriceProduct>, diesel::result::Error> {
+    pub fn batch_update(records: NewPriceProductsToUpdate, param_product_id: i32, param_user_id: i32, connection: &PgConnection) ->
+        Result<Vec<FullPriceProduct>, diesel::result::Error> {
             use diesel::QueryDsl;
             use diesel::RunQueryDsl;
             use diesel::ExpressionMethods;
@@ -74,7 +77,7 @@ impl PriceProductToUpdate {
 
             connection.transaction(|| {
                 let mut records_to_keep = vec![];
-                for price_product_to_update in records {
+                for price_product_to_update in records.data {
 
                     if price_product_to_update.to_delete &&
                         price_product_to_update.price_product.id.is_some() {
@@ -89,33 +92,51 @@ impl PriceProductToUpdate {
                     }
                 }
 
-                records_to_keep
-                    .iter()
-                    .map(|price_product| {
+                let product_prices =
+                    records_to_keep
+                        .iter()
+                        .map(|price_product| {
 
-                        let new_price_product = NewPriceProduct {
-                            user_id: Some(param_user_id),
-                            product_id: Some(param_product_id),
-                            ..price_product.clone().price_product
-                        };
+                            let new_price_product = NewPriceProduct {
+                                user_id: Some(param_user_id),
+                                product_id: Some(param_product_id),
+                                ..price_product.clone().price_product
+                            };
 
-                        diesel::insert_into(prices_products::table)
-                            .values(&new_price_product)
-                            .on_conflict((prices_products::price_id, 
-                                        prices_products::product_id))
-                            .do_update()
-                            .set(prices_products::amount.eq(new_price_product.amount))
-                            .returning((prices_products::id, 
-                                        prices_products::price_id,
-                                        prices_products::product_id,
-                                        prices_products::user_id,
-                                        prices_products::amount))
-                            .get_result::<PriceProduct>(connection)
-                    })
-                    .fold_results(vec![], |mut accum, value| {
-                        accum.push(value);
-                        accum
-                    })
+                            diesel::insert_into(prices_products::table)
+                                .values(&new_price_product)
+                                .on_conflict((prices_products::price_id, 
+                                            prices_products::product_id))
+                                .do_update()
+                                .set(prices_products::amount.eq(new_price_product.amount))
+                                .returning((prices_products::id, 
+                                            prices_products::price_id,
+                                            prices_products::product_id,
+                                            prices_products::user_id,
+                                            prices_products::amount))
+                                .get_result::<PriceProduct>(connection)
+                        })
+                        .fold_results(vec![], |mut accum, value| {
+                            accum.push(value);
+                            accum
+                        })?;
+
+                let mut full_price_product = vec![];
+                for price_product in product_prices {
+                    let price = Price::find(
+                        price_product.price_id, 
+                        param_user_id, 
+                        connection).map_err(|_| {
+                            diesel::result::Error::NotFound
+                        })?;
+                    full_price_product.push(
+                        FullPriceProduct {
+                            price_product,
+                            price
+                        }
+                    )
+                }
+                Ok(full_price_product)
             })
 
         }
@@ -155,7 +176,7 @@ impl NewPrice {
 }
 
 impl Price {
-    pub fn find(price_id: &i32, param_user_id: i32, connection: &PgConnection) -> 
+    pub fn find(price_id: i32, param_user_id: i32, connection: &PgConnection) -> 
         Result<Price, MyStoreError> {
             use diesel::QueryDsl;
             use diesel::RunQueryDsl;
@@ -167,7 +188,7 @@ impl Price {
                 .first(connection)?)
     }
 
-    pub fn destroy(price_id: &i32, param_user_id: i32, connection: &PgConnection) 
+    pub fn destroy(price_id: i32, param_user_id: i32, connection: &PgConnection) 
         -> Result<(), MyStoreError> {
             use diesel::QueryDsl;
             use diesel::RunQueryDsl;

@@ -2,6 +2,8 @@ use juniper::FieldResult;
 use crate::models::Context;
 use crate::models::sale::{Sale, NewSale, FullSale};
 use crate::models::sale_product::NewSaleProducts;
+use crate::models::price::NewPriceProductsToUpdate;
+use crate::models::product::{FullProduct, Product, NewProduct};
 use crate::models::sale_state::Event;
 
 pub struct Mutation;
@@ -49,4 +51,11 @@ impl Mutation {
         Sale::destroy_sale(context, sale_id)
     }
 
+    fn createProduct(
+        context: &Context,
+        param_new_product: NewProduct,
+        param_new_price_products: NewPriceProductsToUpdate,
+    ) -> FieldResult<FullProduct> {
+        Product::create_product(context, param_new_product, param_new_price_products)
+    }
 }

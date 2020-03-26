@@ -25,13 +25,13 @@ use crate::models::price::Price;
 
 function_handler!(
     show (id: web::Path<i32>) -> (|user: LoggedUser, pg_pool: PgPooledConnection| {
-        Price::find(&id, user.id, &pg_pool)
+        Price::find(*id, user.id, &pg_pool)
     })
 );
 
 function_handler!(
     destroy (id: web::Path<i32>) -> (|user: LoggedUser, pg_pool: PgPooledConnection| {
-        Price::destroy(&id, user.id, &pg_pool)
+        Price::destroy(*id, user.id, &pg_pool)
     })
 );
 
