@@ -8,6 +8,7 @@ pub struct PriceList(pub Vec<Price>);
 
 #[derive(Identifiable, Queryable, Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[table_name="prices"]
+#[derive(juniper::GraphQLObject)]
 pub struct Price {
     pub id: i32,
     pub name: String,
@@ -16,6 +17,7 @@ pub struct Price {
 
 #[derive(Insertable, Deserialize, Serialize, AsChangeset, Debug, Clone, PartialEq)]
 #[table_name="prices"]
+#[derive(juniper::GraphQLInputObject)]
 pub struct NewPrice {
     pub name: Option<String>,
     pub user_id: Option<i32>
@@ -25,6 +27,7 @@ pub struct NewPrice {
 #[belongs_to(Price)]
 #[belongs_to(Product)]
 #[table_name="prices_products"]
+#[derive(juniper::GraphQLObject)]
 pub struct PriceProduct {
     pub id: i32,
     pub price_id: i32,
@@ -33,8 +36,16 @@ pub struct PriceProduct {
     pub amount: Option<i32>
 }
 
+#[derive(juniper::GraphQLObject)]
+#[derive(Debug, Clone)]
+pub struct FullPriceProduct {
+    pub price_product: PriceProduct,
+    pub price: Price
+}
+
 #[derive(Insertable, Deserialize, Serialize, AsChangeset, Debug, Clone, PartialEq)]
 #[table_name="prices_products"]
+#[derive(juniper::GraphQLInputObject)]
 pub struct NewPriceProduct {
     pub id: Option<i32>,
     pub price_id: i32,
@@ -44,6 +55,7 @@ pub struct NewPriceProduct {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+#[derive(juniper::GraphQLObject)]
 pub struct PriceProductToUpdate {
     pub price_product: NewPriceProduct,
     pub to_delete: bool

@@ -58,17 +58,6 @@ fn main() {
         .data(establish_connection())
         .data(schema.clone())
         .service(
-            web::resource("/products")
-                .route(web::get().to_async(::mystore_lib::handlers::products::index))
-                .route(web::post().to_async(::mystore_lib::handlers::products::create))
-        )
-        .service(
-            web::resource("/products/{id}")
-                .route(web::get().to_async(::mystore_lib::handlers::products::show))
-                .route(web::delete().to_async(::mystore_lib::handlers::products::destroy))
-                .route(web::patch().to_async(::mystore_lib::handlers::products::update))
-        )
-        .service(
             web::resource("/prices")
                 .route(web::get().to_async(::mystore_lib::handlers::prices::index))
                 .route(web::post().to_async(::mystore_lib::handlers::prices::create))
