@@ -10,7 +10,7 @@ pub struct ListProduct {
     pub data: Vec<FullProduct>
 }
 
-#[derive(Debug, Clone, juniper::GraphQLObject)]
+#[derive(Debug, Clone, Serialize, Deserialize, juniper::GraphQLObject)]
 pub struct FullProduct {
     pub product: Product,
     pub price_products: Vec<FullPriceProduct>

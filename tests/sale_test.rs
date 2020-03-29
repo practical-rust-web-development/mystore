@@ -18,19 +18,20 @@ mod test{
     use http::header::HeaderValue;
     use actix_http::cookie::Cookie;
 
-    use serde_json::{ json, Value };
+    use serde_json::{json, Value};
     use std::str;
     use std::time::Duration as std_duration;
     use crate::common::db_connection::establish_connection;
-    use std::cell::{ RefCell, RefMut };
+    use std::cell::{RefCell, RefMut};
 
-    use ::mystore_lib::models::product::{ Product, NewProduct };
+    use ::mystore_lib::models::product::{Product, NewProduct, FullProduct};
     use ::mystore_lib::models::user::{ NewUser, User };
     use ::mystore_lib::graphql::schema::create_schema;
     use ::mystore_lib::graphql::{graphql, graphiql};
     use ::mystore_lib::models::sale::NewSale;
     use ::mystore_lib::models::sale_state::SaleState;
     use ::mystore_lib::models::sale_product::NewSaleProduct;
+    use ::mystore_lib::models::price::NewPriceProductsToUpdate;
 
     #[test]
     fn test() {
@@ -119,8 +120,8 @@ mod test{
             user_id: Some(user.id)
         };
 
-        let shoe = create_product(user.id, new_shoe);
-        let hat = create_product(user.id, new_hat);
+        let shoe = create_product(user.id, new_shoe).product;
+        let hat = create_product(user.id, new_hat).product;
 
         let new_sale = NewSale {
             id: None,
@@ -338,10 +339,17 @@ mod test{
             .get_result::<User>(&pg_pool).unwrap()
     }
 
-    fn create_product(user_id: i32, new_product: NewProduct) -> Product {
+    fn create_product(user_id: i32, new_product: NewProduct) -> FullProduct {
+        use std::sync::Arc;
+        use ::mystore_lib::models::Context;
+
         let connection = establish_connection();
         let pg_pool = connection.get().unwrap();
-        new_product.create(user_id, vec![], &pg_pool).unwrap().0
+        let context = Context {
+            user_id,
+            conn: Arc::new(pg_pool)
+        };
+        Product::create_product(&context, new_product, NewPriceProductsToUpdate{data: vec![]}).unwrap()
     }
 
     fn create_a_sale(mut srv: RefMut<TestServerRuntime>,

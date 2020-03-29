@@ -37,7 +37,7 @@ pub struct PriceProduct {
 }
 
 #[derive(juniper::GraphQLObject)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FullPriceProduct {
     pub price_product: PriceProduct,
     pub price: Price
@@ -54,7 +54,7 @@ pub struct NewPriceProduct {
     pub amount: Option<i32>
 }
 
-#[derive(juniper::GraphQLInputObject)]
+#[derive(Clone, juniper::GraphQLInputObject)]
 pub struct NewPriceProductsToUpdate{ pub data: Vec<PriceProductToUpdate> }
 
 #[derive(Serialize, Deserialize, Clone)]
