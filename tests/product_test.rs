@@ -169,6 +169,7 @@ mod test{
                                        all_prices.clone());
 
         let shoe_db = response_shoe_db.get("data").unwrap().get("createProduct").unwrap();
+        let shoe_id: i32 = serde_json::from_value(shoe_db.get("product").unwrap().get("id").unwrap().clone()).unwrap();
 
         let response_hat_db = create_a_product(srv.borrow_mut(),
                                       csrf_token.clone(),
@@ -186,12 +187,12 @@ mod test{
 
         let pants_db = response_pants_db.get("data").unwrap().get("createProduct").unwrap();
 
-        //show_a_product(srv.borrow_mut(), 
-        //               csrf_token.clone(), 
-        //               request_cookie.clone(), 
-        //               &shoe_db.0.id, 
-        //               &shoe_db.0,
-        //               shoe_db.clone().1);
+        show_a_product(srv.borrow_mut(), 
+                       csrf_token.clone(), 
+                       request_cookie.clone(), 
+                       shoe_id, 
+                       &shoe_db);
+
         let updated_hat = NewProduct {
             id: None,
             name: Some("Hat".to_string()),
@@ -354,16 +355,55 @@ mod test{
     fn show_a_product(mut srv: RefMut<TestServerRuntime>,
                           csrf_token: HeaderValue,
                           request_cookie: Cookie,
-                          id: &i32,
-                          expected_product: &Product,
-                          prices: Vec<PriceProduct>) {
+                          id: i32,
+                          expected_product: &Value) {
+
+        let query = format!(r#"
+            {{
+                "query": "
+                    query ShowAProduct($productId: Int!) {{
+                        product(productId: $productId) {{
+                            product {{
+                                id
+                                name
+                                stock
+                                cost
+                                description
+                                userId
+                            }}
+                            priceProducts {{
+                                priceProduct {{
+                                    id
+                                    priceId
+                                    userId
+                                    amount
+                                }}
+                                price {{
+                                    id
+                                    name
+                                    userId
+                                }}
+                            }}
+                        }}
+                    }}
+                ",
+                "variables": {{
+                    "productId": {}
+                }}
+            }}
+        "#, id).replace("\n", "");
 
         let request = srv
-                        .get(format!("/products/{}", id))
-                        .header("x-csrf-token", csrf_token.to_str().unwrap())
-                        .cookie(request_cookie);
+                          .post("/graphql")
+                          .header(header::CONTENT_TYPE, "application/json")
+                          .header("x-csrf-token", csrf_token.to_str().unwrap())
+                          .cookie(request_cookie)
+                          .timeout(std_duration::from_secs(600));
 
-        let mut response = srv.block_on(request.send()).unwrap();
+        let mut response =
+            srv
+                .block_on(request.send_body(query))
+                .unwrap();
         assert!(response.status().is_success());
 
         assert_eq!(
@@ -373,8 +413,9 @@ mod test{
 
         let bytes = srv.block_on(response.body()).unwrap();
         let body = str::from_utf8(&bytes).unwrap();
-        let response_product: (Product, Vec<PriceProduct>) = serde_json::from_str(body).unwrap();
-        assert_eq!(response_product, (expected_product.clone(), prices));
+        let response_product: Value = serde_json::from_str(body).unwrap();
+        let product = response_product.get("data").unwrap().get("product").unwrap();
+        assert_eq!(product, expected_product);
     }
 
     //fn update_a_product(mut srv: RefMut<TestServerRuntime>,
