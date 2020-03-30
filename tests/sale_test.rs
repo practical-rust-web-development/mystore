@@ -508,14 +508,6 @@ mod test{
                          changes_to_sale: &NewSale,
                          changes_to_sale_products: Vec<&NewSaleProduct>) -> Value {
 
-        let request = srv
-                          .post("/graphql")
-                          .header(header::CONTENT_TYPE, "application/json")
-                          .header("x-csrf-token", csrf_token.to_str().unwrap())
-                          .cookie(request_cookie)
-                          .timeout(std_duration::from_secs(600));
-
-
         let query = 
             format!(
             r#"
@@ -575,6 +567,15 @@ mod test{
             changes_to_sale_products.get(0).unwrap().tax.unwrap(),
             changes_to_sale_products.get(0).unwrap().total.unwrap())
             .replace("\n", "");
+
+
+        let request = srv
+                          .post("/graphql")
+                          .header(header::CONTENT_TYPE, "application/json")
+                          .header("x-csrf-token", csrf_token.to_str().unwrap())
+                          .cookie(request_cookie)
+                          .timeout(std_duration::from_secs(600));
+
 
         let mut response =
             srv
