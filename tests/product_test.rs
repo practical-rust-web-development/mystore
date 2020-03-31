@@ -187,6 +187,7 @@ mod test{
                                         all_prices.clone());
 
         let pants_db = response_pants_db.get("data").unwrap().get("createProduct").unwrap();
+        let pants_id: i32 = serde_json::from_value(pants_db.get("product").unwrap().get("id").unwrap().clone()).unwrap();
 
         show_a_product(srv.borrow_mut(), 
                        csrf_token.clone(), 
@@ -210,19 +211,61 @@ mod test{
                          &updated_hat,
                          all_prices.clone());
 
-        destroy_a_product(srv.borrow_mut(), 
-                          csrf_token.clone(), 
-                          request_cookie.clone(), 
-                          &pants_db.0.id);
+        let response_product_destroyed = 
+            destroy_a_product(srv.borrow_mut(), 
+                              csrf_token.clone(), 
+                              request_cookie.clone(), 
+                              &pants_id);
+        
+        let destroyed: bool =
+            serde_json::from_value(
+                response_product_destroyed
+                    .get("data")
+                    .unwrap()
+                    .get("destroyProduct")
+                    .unwrap()
+                    .clone()
+            ).unwrap();
+        assert!(destroyed);
 
-        //products_index(srv.borrow_mut(), 
-        //               csrf_token.clone(), 
-        //               request_cookie.clone(), 
-        //               vec![shoe.clone(), updated_hat.clone()]);
-        //search_products(srv.borrow_mut(), 
-        //                csrf_token, 
-        //                request_cookie, 
-        //                vec![updated_hat]);
+        let data_for_searching = json!({
+            "data": {
+                "listProduct": {
+                    "data": [{
+                        "priceProducts": [
+                            {
+                                "price": {
+                                    "name": "Discount"
+                                },
+                                "priceProduct": {
+                                    "amount": 10
+                                }
+                            },
+                            {
+                                "price": {
+                                    "name": "Normal"
+                                },
+                                "priceProduct": {
+                                    "amount": 15
+                                }
+                            }
+                        ],
+                        "product": {
+                            "cost": 2045,
+                            "name": "Hat",
+                            "description": "Just a regular hat",
+                            "id": hat_id,
+                            "stock": 15.0
+                        }
+                    }]
+                }
+            }
+        });
+
+        search_products(srv.borrow_mut(), 
+                        csrf_token, 
+                        request_cookie, 
+                        data_for_searching);
     }
 
     fn login(mut srv: RefMut<TestServerRuntime>) -> (HeaderValue, Cookie) {
@@ -514,87 +557,98 @@ mod test{
         serde_json::from_str(body).unwrap()
     }
 
-    //fn destroy_a_product(mut srv: RefMut<TestServerRuntime>,
-    //                      csrf_token: HeaderValue,
-    //                      request_cookie: Cookie,
-    //                      id: &i32) {
-    //    let request = srv
-    //                    .request(http::Method::DELETE, srv.url(&format!("/products/{}", id)))
-    //                    .header(header::CONTENT_TYPE, "application/json")
-    //                    .header("x-csrf-token", csrf_token.to_str().unwrap())
-    //                    .cookie(request_cookie)
-    //                    .timeout(std_duration::from_secs(600));
+    fn destroy_a_product(mut srv: RefMut<TestServerRuntime>,
+                          csrf_token: HeaderValue,
+                          request_cookie: Cookie,
+                          id: &i32) -> Value {
 
-    //    let response =
-    //        srv
-    //            .block_on(request.send())
-    //            .unwrap();
-    //    assert!(response.status().is_success());
-    //}
+        let query = format!(r#"
+            {{
+                "query": "
+                    mutation DestroyAProduct($productId: Int!) {{
+                        destroyProduct(productId: $productId)
+                    }}
+                ",
+                "variables": {{
+                    "productId": {}
+                }}
+            }}
+        "#, id).replace("\n", "");
 
-    //fn products_index(mut srv: RefMut<TestServerRuntime>,
-    //                      csrf_token: HeaderValue,
-    //                      request_cookie: Cookie,
-    //                  mut data_to_compare: Vec<NewProduct>) {
+        let request = srv
+                          .post("/graphql")
+                          .header(header::CONTENT_TYPE, "application/json")
+                          .header("x-csrf-token", csrf_token.to_str().unwrap())
+                          .cookie(request_cookie)
+                          .timeout(std_duration::from_secs(600));
 
-    //    let request = srv
-    //                    .get("/products?search=&rank=100")
-    //                    .header("x-csrf-token", csrf_token.to_str().unwrap())
-    //                    .cookie(request_cookie);
+        let mut response =
+            srv
+                .block_on(request.send_body(query))
+                .unwrap();
+        assert!(response.status().is_success());
 
-    //    let mut response = srv.block_on(request.send()).unwrap();
-    //    assert!(response.status().is_success());
+        let bytes = srv.block_on(response.body()).unwrap();
+        let body = str::from_utf8(&bytes).unwrap();
+        serde_json::from_str(body).unwrap()
+    }
 
-    //    assert_eq!(
-    //        response.headers().get(http::header::CONTENT_TYPE).unwrap(),
-    //        "application/json"
-    //    );
+    fn search_products(mut srv: RefMut<TestServerRuntime>,
+                           csrf_token: HeaderValue,
+                           request_cookie: Cookie,
+                           data_for_searching: Value) {
 
-    //    let bytes = srv.block_on(response.body()).unwrap();
-    //    let body = str::from_utf8(&bytes).unwrap();
-    //    let mut response_products: ProductList = serde_json::from_str(body).unwrap();
-    //    data_to_compare.sort_by_key(|product| product.name.clone());
-    //    response_products.0.sort_by_key(|product| product.0.name.clone());
-    //    let products: Vec<Product> =
-    //        response_products
-    //        .0
-    //        .iter()
-    //        .map (|product| product.0.clone())
-    //        .collect();
-    //    assert_eq!(data_to_compare, products);
-    //}
+        let query = format!(r#"
+            {{
+                "query": "
+                    query ListProduct($search: String!, $limit: Int!, $rank: Float!) {{
+                        listProduct(search: $search, limit: $limit, rank: $rank) {{
+                            data {{
+                                product {{
+                                    id
+                                    name
+                                    stock
+                                    cost
+                                    description
+                                }}
+                                priceProducts {{
+                                    priceProduct {{
+                                        amount
+                                    }}
+                                    price {{
+                                        name
+                                    }}
+                                }}
+                            }}
+                        }}
+                    }}
+                ",
+                "variables": {{
+                    "search": "hat",
+                    "limit": 10,
+                    "rank": 1.0
+                }}
+            }}
+        "#).replace("\n", "");
 
-    //fn search_products(mut srv: RefMut<TestServerRuntime>,
-    //                      csrf_token: HeaderValue,
-    //                      request_cookie: Cookie,
-    //                  mut data_to_compare: Vec<NewProduct>) {
+        let request = srv
+                          .post("/graphql")
+                          .header(header::CONTENT_TYPE, "application/json")
+                          .header("x-csrf-token", csrf_token.to_str().unwrap())
+                          .cookie(request_cookie)
+                          .timeout(std_duration::from_secs(600));
 
-    //    let request = srv
-    //                    .get("/products?search=hats&rank=100")
-    //                    .header("x-csrf-token", csrf_token.to_str().unwrap())
-    //                    .cookie(request_cookie);
+        let mut response =
+            srv
+                .block_on(request.send_body(query))
+                .unwrap();
+        assert!(response.status().is_success());
 
-    //    let mut response = srv.block_on(request.send()).unwrap();
-    //    assert!(response.status().is_success());
-
-    //    assert_eq!(
-    //        response.headers().get(http::header::CONTENT_TYPE).unwrap(),
-    //        "application/json"
-    //    );
-
-    //    let bytes = srv.block_on(response.body()).unwrap();
-    //    let body = str::from_utf8(&bytes).unwrap();
-    //    let mut response_products: ProductList = serde_json::from_str(body).unwrap();
-    //    data_to_compare.sort_by_key(|product| product.name.clone());
-    //    response_products.0.sort_by_key(|product| product.0.name.clone());
-    //    let products: Vec<Product> =
-    //        response_products
-    //        .0
-    //        .iter()
-    //        .map (|product| product.0.clone())
-    //        .collect();
-    //    assert_eq!(data_to_compare, products);
-    //}
+        let bytes = srv.block_on(response.body()).unwrap();
+        let body = str::from_utf8(&bytes).unwrap();
+        let response_sales: Value = serde_json::from_str(body).unwrap();
+        assert_eq!(data_for_searching, response_sales);
+    }
 
     fn create_a_price(mut srv: RefMut<TestServerRuntime>,
                           csrf_token: HeaderValue,
