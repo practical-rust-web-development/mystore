@@ -2,6 +2,7 @@ use juniper::FieldResult;
 use crate::models::Context;
 use crate::models::sale::{Sale, NewSale, ListSale, FullSale};
 use crate::models::product::{Product, ListProduct, FullProduct};
+use crate::models::price::{PriceList, Price};
 
 pub struct Query;
 
@@ -24,4 +25,13 @@ impl Query {
     fn product(context: &Context, product_id: i32) -> FieldResult<FullProduct> {
         Product::product(context, product_id)
     }
+
+    fn ListPrice(context: &Context) -> FieldResult<PriceList> {
+        PriceList::list(context)
+    }
+
+    fn price(context: &Context, price_id: i32) -> FieldResult<Price> {
+        Price::find(context, price_id)
+    }
+
 }

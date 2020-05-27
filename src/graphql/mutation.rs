@@ -5,6 +5,7 @@ use crate::models::sale_product::NewSaleProducts;
 use crate::models::price::NewPriceProductsToUpdate;
 use crate::models::product::{FullProduct, Product, NewProduct};
 use crate::models::sale_state::Event;
+use crate::models::price::{NewPrice, Price};
 
 pub struct Mutation;
 
@@ -69,5 +70,17 @@ impl Mutation {
 
     fn destroyProduct(context: &Context, product_id: i32) -> FieldResult<bool> {
         Product::destroy_product(context, product_id)
+    }
+
+    fn createPrice(context: &Context, new_price: NewPrice) -> FieldResult<Price> {
+        Price::create(context, new_price)
+    }
+
+    fn updatePrice(context: &Context, edit_price: NewPrice) -> FieldResult<Price> {
+        Price::update(context, edit_price)
+    }
+
+    fn destroyPrice(context: &Context, price_id: i32) -> FieldResult<bool> {
+        Price::destroy(context, price_id)
     }
 }

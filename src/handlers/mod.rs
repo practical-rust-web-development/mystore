@@ -1,6 +1,4 @@
 #[macro_use]
-pub mod function_handler;
-pub mod prices;
 pub mod register;
 pub mod authentication;
 

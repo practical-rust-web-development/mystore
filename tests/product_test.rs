@@ -22,10 +22,9 @@ mod test{
     use crate::common::db_connection::establish_connection;
     use std::cell::{RefCell, RefMut};
 
-    use ::mystore_lib::models::product::{Product, NewProduct, FullProduct};
+    use ::mystore_lib::models::product::{NewProduct};
     use ::mystore_lib::models::user::{NewUser, User};
-    use ::mystore_lib::models::price::{Price, 
-        PriceProduct, 
+    use ::mystore_lib::models::price::{ 
         PriceProductToUpdate, 
         NewPriceProduct, 
         NewPrice, 
@@ -79,13 +78,6 @@ mod test{
                         web::resource("/graphql").route(web::post().to_async(graphql))
                     )
                     .service(
-                        web::resource("/prices")
-                            .route(web::get()
-                                .to_async(::mystore_lib::handlers::prices::index))
-                            .route(web::post()
-                                .to_async(::mystore_lib::handlers::prices::create))
-                    )
-                    .service(
                         web::resource("/auth")
                             .route(web::post()
                                 .to_async(::mystore_lib::handlers::authentication::login))
@@ -125,8 +117,8 @@ mod test{
             user_id: None
         };
 
-        let new_price_discount = NewPrice { name: Some("Discount".to_string()), user_id: None };
-        let new_price_normal = NewPrice { name: Some("Normal".to_string()), user_id: None };
+        let new_price_discount = NewPrice { id: None, name: Some("Discount".to_string()), user_id: None };
+        let new_price_normal = NewPrice { id: None, name: Some("Normal".to_string()), user_id: None };
 
         let price_discount = create_a_price(srv.borrow_mut(),
                                             csrf_token.clone(),
@@ -137,6 +129,12 @@ mod test{
                                           request_cookie.clone(),
                                           &new_price_normal);
 
+        let price_discount_db = price_discount.get("data").unwrap().get("createPrice").unwrap();
+        let price_discount_id: i32 = serde_json::from_value(price_discount_db.get("id").unwrap().clone()).unwrap();
+
+        let price_normal_db = price_normal.get("data").unwrap().get("createPrice").unwrap();
+        let price_normal_id: i32 = serde_json::from_value(price_normal_db.get("id").unwrap().clone()).unwrap();
+
         let all_prices = NewPriceProductsToUpdate {
             data: vec![
                 PriceProductToUpdate {
@@ -145,7 +143,7 @@ mod test{
                         id: None,
                         product_id: None,
                         user_id: None,
-                        price_id: price_discount.clone().id,
+                        price_id: price_discount_id,
                         amount: Some(10)
                     }
                 },
@@ -155,7 +153,7 @@ mod test{
                         id: None,
                         product_id: None,
                         user_id: None,
-                        price_id: price_normal.clone().id,
+                        price_id: price_normal_id,
                         amount: Some(15)
                     }
                 }
@@ -207,7 +205,6 @@ mod test{
         update_a_product(srv.borrow_mut(), 
                          csrf_token.clone(), 
                          request_cookie.clone(), 
-                         &hat_id, 
                          &updated_hat,
                          all_prices.clone());
 
@@ -469,7 +466,6 @@ mod test{
     fn update_a_product(mut srv: RefMut<TestServerRuntime>,
                           csrf_token: HeaderValue,
                           request_cookie: Cookie,
-                          id: &i32,
                           changes_to_product: &NewProduct,
                           prices: NewPriceProductsToUpdate) -> Value {
 
@@ -653,18 +649,40 @@ mod test{
     fn create_a_price(mut srv: RefMut<TestServerRuntime>,
                           csrf_token: HeaderValue,
                           request_cookie: Cookie,
-                          price: &NewPrice) -> Price {
+                          price: &NewPrice) -> Value {
 
         let request = srv
-                          .post("/prices")
+                          .post("/graphql")
                           .header(header::CONTENT_TYPE, "application/json")
                           .header("x-csrf-token", csrf_token.to_str().unwrap())
                           .cookie(request_cookie)
                           .timeout(std_duration::from_secs(600));
 
+        let query =
+            format!(
+            r#"
+            {{
+                "query": "
+                    mutation createPrice($newPrice: NewPrice!) {{
+                            createPrice(newPrice: $newPrice) {{
+                                id
+                                name
+                                userId
+                            }}
+                    }}
+                ",
+                "variables": {{
+                    "newPrice": {{
+                        "name": "{}"
+                    }}
+                }}
+            }}"#,
+            price.clone().name.unwrap())
+            .replace("\n", "");
+
         let mut response =
             srv
-                .block_on(request.send_body(json!(price).to_string()))
+                .block_on(request.send_body(query))
                 .unwrap();
 
         assert!(response.status().is_success());

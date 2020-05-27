@@ -58,11 +58,6 @@ fn main() {
         .data(establish_connection())
         .data(schema.clone())
         .service(
-            web::resource("/prices")
-                .route(web::get().to_async(::mystore_lib::handlers::prices::index))
-                .route(web::post().to_async(::mystore_lib::handlers::prices::create))
-        )
-        .service(
             web::resource("/register")
                 .route(web::post().to_async(::mystore_lib::handlers::register::register))
         )

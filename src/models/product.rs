@@ -108,7 +108,6 @@ impl Product {
             .load::<(PriceProduct, Price)>(connection)?
             .grouped_by(&query_products);
 
-
         let vec_full_product = query_products
             .into_iter()
             .zip(products_with_prices)
@@ -154,7 +153,7 @@ impl Product {
             .get_result::<Product>(connection)?;
 
         let price_products =
-            PriceProductToUpdate::batch_update(prices, product.id, user_id, connection)?;
+            PriceProductToUpdate::batch_update(&context, prices, product.id)?;
 
         Ok(FullProduct{product, price_products})
     }
@@ -246,7 +245,7 @@ impl Product {
             .get_result::<Product>(connection)?;
 
         let price_products =
-            PriceProductToUpdate::batch_update(prices, product_id, param_user_id, connection)?;
+            PriceProductToUpdate::batch_update(&context, prices, product_id)?;
 
         Ok(FullProduct{product, price_products})
     }

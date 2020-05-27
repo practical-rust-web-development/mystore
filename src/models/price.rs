@@ -1,10 +1,14 @@
+use juniper::FieldResult;
 use crate::schema::prices;
 use crate::schema::prices::dsl::*;
 use crate::schema::prices_products;
 use crate::models::product::Product;
+use crate::models::Context;
 
-#[derive(Serialize, Deserialize)]
-pub struct PriceList(pub Vec<Price>);
+#[derive(Serialize, Deserialize, Clone, juniper::GraphQLObject)]
+pub struct PriceList {
+    pub data: Vec<Price>
+}
 
 #[derive(Identifiable, Queryable, Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[table_name="prices"]
@@ -15,10 +19,10 @@ pub struct Price {
     pub user_id: i32
 }
 
-#[derive(Insertable, Deserialize, Serialize, AsChangeset, Debug, Clone, PartialEq)]
+#[derive(Insertable, Deserialize, Serialize, AsChangeset, Debug, Clone, PartialEq, juniper::GraphQLInputObject)]
 #[table_name="prices"]
-#[derive(juniper::GraphQLInputObject)]
 pub struct NewPrice {
+    pub id: Option<i32>,
     pub name: Option<String>,
     pub user_id: Option<i32>
 }
@@ -67,13 +71,16 @@ pub struct PriceProductToUpdate {
 use diesel::PgConnection;
 
 impl PriceProductToUpdate {
-    pub fn batch_update(records: NewPriceProductsToUpdate, param_product_id: i32, param_user_id: i32, connection: &PgConnection) ->
+    pub fn batch_update(context: &Context, records: NewPriceProductsToUpdate, param_product_id: i32) ->
         Result<Vec<FullPriceProduct>, diesel::result::Error> {
             use diesel::QueryDsl;
             use diesel::RunQueryDsl;
             use diesel::ExpressionMethods;
             use diesel::Connection;
             use itertools::Itertools;
+
+            let connection: &PgConnection = &context.conn;
+            let param_user_id = context.user_id;
 
             connection.transaction(|| {
                 let mut records_to_keep = vec![];
@@ -124,9 +131,9 @@ impl PriceProductToUpdate {
                 let mut full_price_product = vec![];
                 for price_product in product_prices {
                     let price = Price::find(
-                        price_product.price_id, 
-                        param_user_id, 
-                        connection).map_err(|_| {
+                            &context,
+                            price_product.price_id,
+                        ).map_err(|_| {
                             diesel::result::Error::NotFound
                         })?;
                     full_price_product.push(
@@ -142,29 +149,37 @@ impl PriceProductToUpdate {
         }
 }
 
-use crate::errors::MyStoreError;
-
 impl PriceList {
-    pub fn list(param_user_id: i32, connection: &PgConnection) ->
-        Result<Self, MyStoreError> {
+    pub fn list(context: &Context) ->
+        FieldResult<Self> {
             use diesel::ExpressionMethods;
             use diesel::QueryDsl;
             use diesel::RunQueryDsl;
 
-            Ok(PriceList(prices
-                .filter(user_id.eq(param_user_id))
-                .load::<Price>(connection)?))
+            let connection: &PgConnection = &context.conn;
+            let param_user_id = context.user_id;
+
+            Ok(
+                PriceList{
+                    data: prices
+                            .filter(user_id.eq(param_user_id))
+                            .load::<Price>(connection)?
+                }
+            )
         }
 }
 
-impl NewPrice {
-    pub fn create(&self, param_user_id: i32, connection: &PgConnection) ->
-        Result<Price, MyStoreError> {
+impl Price {
+    pub fn create(context: &Context, new_price: NewPrice) ->
+        FieldResult<Price> {
             use diesel::RunQueryDsl;
+
+            let connection: &PgConnection = &context.conn;
+            let param_user_id = context.user_id;
 
             let new_price = NewPrice {
                 user_id: Some(param_user_id),
-                ..self.clone()
+                ..new_price
             };
 
             Ok(diesel::insert_into(prices::table)
@@ -173,14 +188,15 @@ impl NewPrice {
                 .get_result::<Price>(connection)?)
 
         }
-}
 
-impl Price {
-    pub fn find(price_id: i32, param_user_id: i32, connection: &PgConnection) -> 
-        Result<Price, MyStoreError> {
+    pub fn find(context: &Context, price_id: i32) -> 
+        FieldResult<Price> {
             use diesel::QueryDsl;
             use diesel::RunQueryDsl;
             use diesel::ExpressionMethods;
+
+            let connection: &PgConnection = &context.conn;
+            let param_user_id = context.user_id;
 
             Ok(prices
                 .filter(user_id.eq(param_user_id))
@@ -188,32 +204,45 @@ impl Price {
                 .first(connection)?)
     }
 
-    pub fn destroy(price_id: i32, param_user_id: i32, connection: &PgConnection) 
-        -> Result<(), MyStoreError> {
+    pub fn destroy(context: &Context, price_id: i32) 
+        -> FieldResult<bool> {
             use diesel::QueryDsl;
             use diesel::RunQueryDsl;
             use diesel::ExpressionMethods;
+
+            let connection: &PgConnection = &context.conn;
+            let param_user_id = context.user_id;
 
             diesel::delete(prices.filter(user_id.eq(param_user_id)).find(price_id))
                 .execute(connection)?;
-            Ok(())
+            Ok(true)
     }
 
-    pub fn update(price_id: i32, param_user_id: i32, new_price: NewPrice, connection: &PgConnection) 
-        -> Result<(), MyStoreError> {
+    pub fn update(context: &Context, edit_price: NewPrice) 
+        -> FieldResult<Price> {
             use diesel::QueryDsl;
             use diesel::RunQueryDsl;
             use diesel::ExpressionMethods;
 
+            let connection: &PgConnection = &context.conn;
+            let param_user_id = context.user_id;
+
+            let price_id = edit_price
+                .id
+                .ok_or(diesel::result::Error::QueryBuilderError(
+                    "missing id".into(),
+                ))?;
+
             let new_price_to_replace = NewPrice {
                 user_id: Some(param_user_id),
-                ..new_price.clone()
+                ..edit_price.clone()
             };
 
-            diesel::update(prices.filter(user_id.eq(param_user_id)).find(price_id))
-                .set(new_price_to_replace)
-                .execute(connection)?;
+            let price =
+                diesel::update(prices.filter(user_id.eq(param_user_id)).find(price_id))
+                    .set(new_price_to_replace)
+                    .get_result::<Price>(connection)?;
 
-            Ok(())
+            Ok(price)
         }
 }
