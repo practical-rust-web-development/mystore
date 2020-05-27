@@ -1,16 +1,27 @@
-use crate::models::price::Price;
-use crate::models::price::PriceProduct;
+use crate::models::price::{Price, PriceProduct, FullPriceProduct, NewPriceProductsToUpdate};
 use crate::schema::products;
 use diesel::BelongingToDsl;
 use diesel::PgConnection;
+use juniper::FieldResult;
+use crate::models::Context;
 
-#[derive(Serialize, Deserialize)]
-pub struct ProductList(pub Vec<(Product, Vec<(PriceProduct, Price)>)>);
+#[derive(Debug, Clone, juniper::GraphQLObject)]
+pub struct ListProduct {
+    pub data: Vec<FullProduct>
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, juniper::GraphQLObject)]
+pub struct FullProduct {
+    pub product: Product,
+    pub price_products: Vec<FullPriceProduct>
+}
 
 #[derive(
-    Identifiable, Queryable, Serialize, Deserialize, Debug, Clone, PartialEq, juniper::GraphQLObject,
+    Identifiable, Queryable, Serialize, Deserialize, Debug, Clone, PartialEq
 )]
 #[table_name = "products"]
+#[derive(juniper::GraphQLObject)]
+#[graphql(description = "Product")]
 pub struct Product {
     pub id: i32,
     pub name: String,
@@ -58,15 +69,11 @@ pub struct NewProduct {
     pub user_id: Option<i32>,
 }
 
-use crate::errors::MyStoreError;
+use crate::models::price::PriceProductToUpdate;
 
-impl ProductList {
-    pub fn list(
-        param_user_id: i32,
-        search: &str,
-        rank: f64,
-        connection: &PgConnection,
-    ) -> Result<Self, MyStoreError> {
+impl Product {
+
+    pub fn list_product(context: &Context, search: String, limit: i32, rank: f64) -> FieldResult<ListProduct> {
         use crate::schema;
         use crate::schema::products::dsl::*;
         use diesel::pg::Pg;
@@ -77,11 +84,12 @@ impl ProductList {
         use diesel::RunQueryDsl;
         use diesel_full_text_search::{plainto_tsquery, TsRumExtensions, TsVectorExtensions};
 
+        let connection: &PgConnection = &context.conn;
         let mut query = schema::products::table.into_boxed::<Pg>();
 
         if !search.is_empty() {
             query = query
-                .filter(text_searchable_product_col.matches(plainto_tsquery(search)))
+                .filter(text_searchable_product_col.matches(plainto_tsquery(search.clone())))
                 .order((
                     product_rank.desc(),
                     text_searchable_product_col.distance(plainto_tsquery(search)),
@@ -91,8 +99,8 @@ impl ProductList {
         }
         let query_products = query
             .select(PRODUCT_COLUMNS)
-            .filter(user_id.eq(param_user_id).and(product_rank.le(rank)))
-            .limit(10)
+            .filter(user_id.eq(context.user_id).and(product_rank.le(rank)))
+            .limit(i64::from(limit))
             .load::<Product>(connection)?;
 
         let products_with_prices = PriceProduct::belonging_to(&query_products)
@@ -100,29 +108,43 @@ impl ProductList {
             .load::<(PriceProduct, Price)>(connection)?
             .grouped_by(&query_products);
 
-        Ok(ProductList(
-            query_products
-                .into_iter()
-                .zip(products_with_prices)
-                .collect::<Vec<_>>(),
-        ))
+        let vec_full_product = query_products
+            .into_iter()
+            .zip(products_with_prices)
+            .map(|tuple_product| {
+                let full_price_product = tuple_product
+                    .1
+                    .iter()
+                    .map(|tuple_price_product| FullPriceProduct {
+                        price_product: tuple_price_product.0.clone(),
+                        price: tuple_price_product.1.clone(),
+                    })
+                    .collect();
+                FullProduct {
+                    product: tuple_product.0.clone(),
+                    price_products: full_price_product,
+                }
+            })
+            .collect();
+        
+        Ok(ListProduct {
+            data: vec_full_product,
+        })
     }
-}
 
-use crate::models::price::PriceProductToUpdate;
-
-impl NewProduct {
-    pub fn create(
-        &self,
-        param_user_id: i32,
-        prices: Vec<PriceProductToUpdate>,
-        connection: &PgConnection,
-    ) -> Result<(Product, Vec<PriceProduct>), MyStoreError> {
+    pub fn create_product(
+        context: &Context,
+        param_new_product: NewProduct,
+        prices: NewPriceProductsToUpdate,
+    ) -> FieldResult<FullProduct> {
         use diesel::RunQueryDsl;
 
+        let connection: &PgConnection = &context.conn;
+        let user_id = context.user_id;
+
         let new_product = NewProduct {
-            user_id: Some(param_user_id),
-            ..self.clone()
+            user_id: Some(user_id),
+            ..param_new_product
         };
 
         let product = diesel::insert_into(products::table)
@@ -131,83 +153,101 @@ impl NewProduct {
             .get_result::<Product>(connection)?;
 
         let price_products =
-            PriceProductToUpdate::batch_update(prices, product.id, param_user_id, connection)?;
+            PriceProductToUpdate::batch_update(&context, prices, product.id)?;
 
-        Ok((product, price_products))
+        Ok(FullProduct{product, price_products})
     }
-}
 
-impl Product {
-    pub fn find(
-        product_id: &i32,
-        param_user_id: i32,
-        connection: &PgConnection,
-    ) -> Result<(Product, Vec<PriceProduct>), MyStoreError> {
+    pub fn product(context: &Context, product_id: i32) -> FieldResult<FullProduct> {
         use crate::schema;
         use crate::schema::products::dsl::*;
         use diesel::ExpressionMethods;
         use diesel::QueryDsl;
         use diesel::RunQueryDsl;
 
+        let connection: &PgConnection = &context.conn;
         let product: Product = schema::products::table
             .select(PRODUCT_COLUMNS)
-            .filter(user_id.eq(param_user_id))
+            .filter(user_id.eq(context.user_id))
             .find(product_id)
             .first(connection)?;
 
         let products_with_prices =
-            PriceProduct::belonging_to(&product).load::<PriceProduct>(connection)?;
+            PriceProduct::belonging_to(&product)
+            .inner_join(schema::prices::table)
+            .load::<(PriceProduct, Price)>(connection)?
+            .iter()
+            .map(|tuple_price_product| 
+                FullPriceProduct {
+                    price_product: tuple_price_product.0.clone(),
+                    price: tuple_price_product.1.clone()
+                }
+            )
+            .collect();
 
-        Ok((product, products_with_prices))
+        Ok(FullProduct {
+            product,
+            price_products: products_with_prices
+        })
     }
 
-    pub fn destroy(
-        id: &i32,
-        param_user_id: i32,
-        connection: &PgConnection,
-    ) -> Result<(), MyStoreError> {
+    pub fn destroy_product(
+        context: &Context,
+        id: i32
+    ) -> FieldResult<bool> {
         use crate::schema::products::dsl;
         use diesel::ExpressionMethods;
         use diesel::QueryDsl;
         use diesel::RunQueryDsl;
 
+        let connection: &PgConnection = &context.conn;
+        let param_user_id = context.user_id;
         diesel::delete(
             dsl::products
                 .filter(dsl::user_id.eq(param_user_id))
                 .find(id),
         )
         .execute(connection)?;
-        Ok(())
+        Ok(true)
     }
 
-    pub fn update(
-        id: i32,
-        param_user_id: i32,
+    pub fn update_product(
+        context: &Context,
         new_product: NewProduct,
-        prices: Vec<PriceProductToUpdate>,
-        connection: &PgConnection,
-    ) -> Result<(), MyStoreError> {
+        prices: NewPriceProductsToUpdate,
+    ) -> FieldResult<FullProduct> {
         use crate::schema::products::dsl;
         use diesel::ExpressionMethods;
         use diesel::QueryDsl;
         use diesel::RunQueryDsl;
+
+        let connection: &PgConnection = &context.conn;
+        let param_user_id = context.user_id;
+        let product_id = new_product
+            .id
+            .ok_or(diesel::result::Error::QueryBuilderError(
+                "missing id".into(),
+            ))?;
 
         let new_product_to_replace = NewProduct {
             user_id: Some(param_user_id),
             ..new_product.clone()
         };
 
-        diesel::update(
-            dsl::products
-                .filter(dsl::user_id.eq(param_user_id))
-                .find(id),
-        )
-        .set(new_product_to_replace)
-        .execute(connection)?;
+        let product =
+            diesel::update(
+                dsl::products
+                    .filter(dsl::user_id.eq(param_user_id))
+                    .find(product_id),
+            )
+            .set(&new_product_to_replace)
+            .returning(PRODUCT_COLUMNS)
+            .get_result::<Product>(connection)?;
 
-        PriceProductToUpdate::batch_update(prices, id, param_user_id, connection)?;
+        let price_products =
+            PriceProductToUpdate::batch_update(&context, prices, product_id)?;
 
-        Ok(())
+        Ok(FullProduct{product, price_products})
     }
 }
 

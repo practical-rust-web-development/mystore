@@ -19,13 +19,12 @@ extern crate csrf_token;
 #[macro_use]
 extern crate dotenv_codegen;
 
-#[macro_use] extern crate log;
+extern crate log;
 extern crate env_logger;
 
 extern crate actix_http;
 extern crate diesel_full_text_search;
 
-#[macro_use]
 extern crate juniper;
 
 pub mod schema;

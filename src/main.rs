@@ -1,9 +1,7 @@
 #[macro_use]
 extern crate dotenv_codegen;
 extern crate itertools;
-#[macro_use]
 extern crate juniper;
-#[macro_use]
 extern crate diesel_derive_enum;
 
 use actix_web::{App, HttpServer, web};
@@ -15,7 +13,7 @@ use csrf_token::CsrfTokenGenerator;
 use chrono::Duration;
 use ::mystore_lib::db_connection::establish_connection;
 
-use ::mystore_lib::models::sale::create_schema;
+use ::mystore_lib::graphql::schema::create_schema;
 use ::mystore_lib::graphql::graphql;
 
 fn main() {
@@ -59,22 +57,6 @@ fn main() {
         )
         .data(establish_connection())
         .data(schema.clone())
-        .service(
-            web::resource("/products")
-                .route(web::get().to_async(::mystore_lib::handlers::products::index))
-                .route(web::post().to_async(::mystore_lib::handlers::products::create))
-        )
-        .service(
-            web::resource("/products/{id}")
-                .route(web::get().to_async(::mystore_lib::handlers::products::show))
-                .route(web::delete().to_async(::mystore_lib::handlers::products::destroy))
-                .route(web::patch().to_async(::mystore_lib::handlers::products::update))
-        )
-        .service(
-            web::resource("/prices")
-                .route(web::get().to_async(::mystore_lib::handlers::prices::index))
-                .route(web::post().to_async(::mystore_lib::handlers::prices::create))
-        )
         .service(
             web::resource("/register")
                 .route(web::post().to_async(::mystore_lib::handlers::register::register))

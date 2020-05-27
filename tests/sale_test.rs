@@ -18,19 +18,20 @@ mod test{
     use http::header::HeaderValue;
     use actix_http::cookie::Cookie;
 
-    use serde_json::{ json, Value };
+    use serde_json::{json, Value};
     use std::str;
     use std::time::Duration as std_duration;
     use crate::common::db_connection::establish_connection;
-    use std::cell::{ RefCell, RefMut };
+    use std::cell::{RefCell, RefMut};
 
-    use ::mystore_lib::models::product::{ Product, NewProduct, ProductList };
+    use ::mystore_lib::models::product::{Product, NewProduct, FullProduct};
     use ::mystore_lib::models::user::{ NewUser, User };
-    use ::mystore_lib::models::sale::create_schema;
+    use ::mystore_lib::graphql::schema::create_schema;
     use ::mystore_lib::graphql::{graphql, graphiql};
-    use ::mystore_lib::models::sale::{ ListSale, NewSale };
+    use ::mystore_lib::models::sale::NewSale;
     use ::mystore_lib::models::sale_state::SaleState;
-    use ::mystore_lib::models::sale_product::{ NewSaleProduct, NewSaleProducts };
+    use ::mystore_lib::models::sale_product::NewSaleProduct;
+    use ::mystore_lib::models::price::NewPriceProductsToUpdate;
 
     #[test]
     fn test() {
@@ -110,7 +111,7 @@ mod test{
             user_id: Some(user.id)
         };
 
-        let new_pants = NewProduct {
+        let _new_pants = NewProduct {
             id: None,
             name: Some("Pants".to_string()),
             stock: Some(25.0),
@@ -119,8 +120,8 @@ mod test{
             user_id: Some(user.id)
         };
 
-        let shoe = create_product(user.id, new_shoe);
-        let hat = create_product(user.id, new_hat);
+        let shoe = create_product(user.id, new_shoe).product;
+        let hat = create_product(user.id, new_hat).product;
 
         let new_sale = NewSale {
             id: None,
@@ -338,10 +339,17 @@ mod test{
             .get_result::<User>(&pg_pool).unwrap()
     }
 
-    fn create_product(user_id: i32, new_product: NewProduct) -> Product {
+    fn create_product(user_id: i32, new_product: NewProduct) -> FullProduct {
+        use std::sync::Arc;
+        use ::mystore_lib::models::Context;
+
         let connection = establish_connection();
         let pg_pool = connection.get().unwrap();
-        new_product.create(user_id, vec![], &pg_pool).unwrap().0
+        let context = Context {
+            user_id,
+            conn: Arc::new(pg_pool)
+        };
+        Product::create_product(&context, new_product, NewPriceProductsToUpdate{data: vec![]}).unwrap()
     }
 
     fn create_a_sale(mut srv: RefMut<TestServerRuntime>,
@@ -500,14 +508,6 @@ mod test{
                          changes_to_sale: &NewSale,
                          changes_to_sale_products: Vec<&NewSaleProduct>) -> Value {
 
-        let request = srv
-                          .post("/graphql")
-                          .header(header::CONTENT_TYPE, "application/json")
-                          .header("x-csrf-token", csrf_token.to_str().unwrap())
-                          .cookie(request_cookie)
-                          .timeout(std_duration::from_secs(600));
-
-
         let query = 
             format!(
             r#"
@@ -567,6 +567,15 @@ mod test{
             changes_to_sale_products.get(0).unwrap().tax.unwrap(),
             changes_to_sale_products.get(0).unwrap().total.unwrap())
             .replace("\n", "");
+
+
+        let request = srv
+                          .post("/graphql")
+                          .header(header::CONTENT_TYPE, "application/json")
+                          .header("x-csrf-token", csrf_token.to_str().unwrap())
+                          .cookie(request_cookie)
+                          .timeout(std_duration::from_secs(600));
+
 
         let mut response =
             srv

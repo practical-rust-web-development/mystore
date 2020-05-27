@@ -1,11 +1,15 @@
+pub mod query;
+pub mod mutation;
+pub mod schema;
+
 use std::sync::Arc;
-use std::ops::Deref;
 use actix_web::{web, Error, HttpResponse};
 use actix::prelude::Future;
 use juniper::http::graphiql::graphiql_source;
 use juniper::http::GraphQLRequest;
+use schema::Schema;
 
-use crate::models::sale::{create_schema, Schema, Context, create_context};
+use crate::models::create_context;
 use crate::handlers::LoggedUser;
 use crate::db_connection::PgPool;
 use crate::serde::ser::Error as SerdeError;
