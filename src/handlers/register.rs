@@ -1,10 +1,11 @@
-use actix_web::web;
+use actix_web::{web, post};
 use crate::db_connection::PgPool;
 use actix_web::HttpResponse;
 use crate::handlers::pg_pool_handler;
 
 use crate::models::user::{ User, RegisterUser };
 
+#[post("/register")]
 pub async fn register(new_user: web::Json<RegisterUser>, pool: web::Data<PgPool>) ->
  Result<HttpResponse, HttpResponse> {
     let pg_pool = pg_pool_handler(pool)?;

@@ -1,6 +1,6 @@
 use actix_web::HttpResponse;
 use actix_identity::Identity;
-use actix_web::web;
+use actix_web::{web, post, delete};
 use csrf_token::CsrfTokenGenerator;
 use hex;
 use crate::utils::jwt::create_token;
@@ -10,6 +10,7 @@ use crate::db_connection::PgPool;
 use crate::handlers::pg_pool_handler;
 use crate::errors::MyStoreError;
 
+#[post("/login")]
 pub async fn login(auth_user: web::Json<AuthUser>, 
              id: Identity, 
              pool: web::Data<PgPool>, 
@@ -37,6 +38,7 @@ pub async fn login(auth_user: web::Json<AuthUser>,
     Ok(response)
 }
 
+#[delete("/logout")]
 pub async fn logout(id: Identity) -> Result<HttpResponse, HttpResponse> {
     id.forget();
     Ok(HttpResponse::Ok().json("success"))

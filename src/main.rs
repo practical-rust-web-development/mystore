@@ -4,7 +4,7 @@ extern crate itertools;
 extern crate juniper;
 extern crate diesel_derive_enum;
 
-use actix_web::{App, HttpServer, web};
+use actix_web::{App, HttpServer};
 use actix_identity::{CookieIdentityPolicy, IdentityService};
 use actix_web::http::header;
 use actix_cors::Cors;
@@ -58,18 +58,10 @@ async fn main() -> std::io::Result<()> {
         )
         .data(establish_connection())
         .data(schema.clone())
-        .service(
-            web::resource("/register")
-                .route(web::post().to(::mystore_lib::handlers::register::register))
-        )
-        .service(
-            web::resource("/auth")
-                .route(web::post().to(::mystore_lib::handlers::authentication::login))
-                .route(web::delete().to(::mystore_lib::handlers::authentication::logout))
-        )
-        .service(
-            web::resource("/graphql").route(web::post().to(graphql))
-        )
+        .service(::mystore_lib::handlers::register::register)
+        .service(::mystore_lib::handlers::authentication::login)
+        .service(::mystore_lib::handlers::authentication::logout)
+        .service(graphql)
     )
     .bind("127.0.0.1:8088")?
     .run()

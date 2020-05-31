@@ -3,7 +3,7 @@ pub mod mutation;
 pub mod schema;
 
 use std::sync::Arc;
-use actix_web::{web, Error, HttpResponse};
+use actix_web::{web, Error, HttpResponse, post, get};
 use juniper::http::graphiql::graphiql_source;
 use juniper::http::GraphQLRequest;
 use schema::Schema;
@@ -13,6 +13,7 @@ use crate::handlers::LoggedUser;
 use crate::db_connection::PgPool;
 use crate::serde::ser::Error as SerdeError;
 
+#[get("/graphiql")]
 pub async fn graphiql() -> HttpResponse {
     let html = graphiql_source("http://127.0.0.1:8080/graphql");
     HttpResponse::Ok()
@@ -20,6 +21,7 @@ pub async fn graphiql() -> HttpResponse {
         .body(html)
 }
 
+#[post("/graphql")]
 pub async fn graphql(
     st: web::Data<Arc<Schema>>,
     data: web::Json<GraphQLRequest>,
