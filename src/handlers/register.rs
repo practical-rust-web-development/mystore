@@ -5,7 +5,7 @@ use crate::handlers::pg_pool_handler;
 
 use crate::models::user::{ User, RegisterUser };
 
-pub fn register(new_user: web::Json<RegisterUser>, pool: web::Data<PgPool>) ->
+pub async fn register(new_user: web::Json<RegisterUser>, pool: web::Data<PgPool>) ->
  Result<HttpResponse, HttpResponse> {
     let pg_pool = pg_pool_handler(pool)?;
     let register_user = new_user

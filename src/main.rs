@@ -16,10 +16,10 @@ use ::mystore_lib::db_connection::establish_connection;
 use ::mystore_lib::graphql::schema::create_schema;
 use ::mystore_lib::graphql::graphql;
 
-fn main() {
+#[actix_rt::main]
+async fn main() -> std::io::Result<()> {
     std::env::set_var("RUST_LOG", "actix_web=debug");
     env_logger::init();
-    let sys = actix::System::new("mystore");
 
     let csrf_token_header = header::HeaderName::from_lowercase(b"x-csrf-token").unwrap();
 
@@ -48,6 +48,7 @@ fn main() {
                                       csrf_token_header.clone()])
                 .expose_headers(vec![csrf_token_header.clone()])
                 .max_age(3600)
+                .finish()
         )
         .data(
             CsrfTokenGenerator::new(
@@ -59,20 +60,18 @@ fn main() {
         .data(schema.clone())
         .service(
             web::resource("/register")
-                .route(web::post().to_async(::mystore_lib::handlers::register::register))
+                .route(web::post().to(::mystore_lib::handlers::register::register))
         )
         .service(
             web::resource("/auth")
-                .route(web::post().to_async(::mystore_lib::handlers::authentication::login))
-                .route(web::delete().to_async(::mystore_lib::handlers::authentication::logout))
+                .route(web::post().to(::mystore_lib::handlers::authentication::login))
+                .route(web::delete().to(::mystore_lib::handlers::authentication::logout))
         )
         .service(
-            web::resource("/graphql").route(web::post().to_async(graphql))
+            web::resource("/graphql").route(web::post().to(graphql))
         )
     )
-    .bind("127.0.0.1:8088").unwrap()
-    .start();
-
-    println!("Started http server: 127.0.0.1:8088");
-    let _ = sys.run();
+    .bind("127.0.0.1:8088")?
+    .run()
+    .await
 }
