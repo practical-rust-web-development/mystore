@@ -27,7 +27,7 @@ csrf-token = { git = "https://git@github.com/werner/csrf-token.git", branch="v0.
 hex = "0.3.2"
 env_logger = "0.6.1"
 log = "0.4.6"
-actix-http = "0.2.1"
+actix-http = "1"
 diesel_full_text_search = { version = "1.2.1", git = "https://github.com/werner/diesel_full_text_search" }
 itertools = "0.8"
 juniper = "0.13"
@@ -35,4 +35,6 @@ diesel-derive-enum = { version = "0.4", features = ["postgres"] }
 
 [dev-dependencies]
 bytes = "0.4"
-actix-http-test = "0.2.0"
+actix-http-test = "1"
+actix-testing = "1"
+actix-service = "1"
