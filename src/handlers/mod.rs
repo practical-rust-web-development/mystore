@@ -2,6 +2,7 @@
 pub mod register;
 pub mod authentication;
 
+use chrono::Duration;
 use actix_web::{ Result, web, Error };
 use crate::db_connection::{ PgPool, PgPooledConnection };
 use futures_util::future::{ok, err, Ready};
@@ -38,9 +39,11 @@ impl FromRequest for LoggedUser {
 
 fn get_token(req: &HttpRequest, payload: &mut dev::Payload) -> Result<LoggedUser, Error> {
     let generator = 
-        req.app_data::<CsrfTokenGenerator>()
-        .ok_or(ErrorBadRequest("An Error ocurred generating the token"))?;
-    
+        CsrfTokenGenerator::new(
+            dotenv!("CSRF_TOKEN_KEY").as_bytes().to_vec(),
+            Duration::hours(1)
+        );
+
     let csrf_token =
         req
             .headers()

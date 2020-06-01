@@ -97,7 +97,7 @@ impl AuthUser {
             users::table
                 .filter(email.eq(&self.email))
                 .load::<User>(connection)?;
-
+        
         let user =
             records
                 .pop()
