@@ -2,9 +2,11 @@
 pub mod register;
 pub mod authentication;
 
-use actix_web::{ Result, web };
-use actix_web::HttpResponse;
+use chrono::Duration;
+use actix_web::{ Result, web, Error };
 use crate::db_connection::{ PgPool, PgPooledConnection };
+use futures_util::future::{ok, err, Ready};
+use actix_web::error::{ErrorBadRequest, ErrorUnauthorized};
 
 pub fn pg_pool_handler(pool: web::Data<PgPool>) -> Result<PgPooledConnection> {
     pool
@@ -23,33 +25,43 @@ use hex;
 use csrf_token::CsrfTokenGenerator;
 
 impl FromRequest for LoggedUser {
-    type Error = HttpResponse;
+    type Error = Error;
     type Config = ();
-    type Future = Result<Self, HttpResponse>;
+    type Future = Ready<Result<Self, Self::Error>>;
 
     fn from_request(req: &HttpRequest, payload: &mut dev::Payload) -> Self::Future {
-        let generator = 
-            req.app_data::<CsrfTokenGenerator>()
-            .ok_or(HttpResponse::InternalServerError())?;
-        
-        let csrf_token =
-            req
-                .headers()
-                .get("x-csrf-token")
-                .ok_or(HttpResponse::Unauthorized())?;
+        match get_token(req, payload) {
+            Ok(user) => ok(user),
+            Err(error) => err(error)
+        }
+    }
+}
 
-        let decoded_token =
-            hex::decode(&csrf_token)
-                .map_err(|error| HttpResponse::InternalServerError().json(error.to_string()))?;
+fn get_token(req: &HttpRequest, payload: &mut dev::Payload) -> Result<LoggedUser, Error> {
+    let generator = 
+        CsrfTokenGenerator::new(
+            dotenv!("CSRF_TOKEN_KEY").as_bytes().to_vec(),
+            Duration::hours(1)
+        );
 
-        generator
-            .verify(&decoded_token)
-            .map_err(|_| HttpResponse::Unauthorized())?;
+    let csrf_token =
+        req
+            .headers()
+            .get("x-csrf-token")
+            .ok_or(ErrorBadRequest("No token provided"))?;
 
-        if let Some(identity) = Identity::from_request(req, payload)?.identity() {
-            let user: SlimUser = decode_token(&identity)?;
-            return Ok(user as LoggedUser);
-        }  
-        Err(HttpResponse::Unauthorized().into())
+    let decoded_token =
+        hex::decode(&csrf_token)
+            .map_err(|_| ErrorBadRequest("An Error ocurred decoding the token"))?;
+
+    generator
+        .verify(&decoded_token)
+        .map_err(|_| ErrorUnauthorized("can't verify token"))?;
+
+    if let Some(identity) = Identity::from_request(req, payload).into_inner()?.identity() {
+        let user: SlimUser = decode_token(&identity)?;
+        Ok(user as LoggedUser)
+    } else {
+        Err(ErrorUnauthorized("can't obtain token"))
     }
 }

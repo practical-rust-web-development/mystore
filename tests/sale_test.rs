@@ -5,19 +5,21 @@ mod common;
 
 mod test{
     use actix_http::HttpService;
-    use actix_http_test::{ TestServer, TestServerRuntime };
+    use actix_http_test::{ TestServer, test_server };
     use actix_web::http::header;
     use actix_identity::{CookieIdentityPolicy, IdentityService};
-    use actix_web::{http, App, web};
+    use actix_web::{http, App};
     use actix_cors::Cors;
     use chrono::Duration;
     use chrono::Local;
     use chrono::NaiveDate;
     use csrf_token::CsrfTokenGenerator;
-    use actix_http::httpmessage::HttpMessage;
     use http::header::HeaderValue;
     use actix_http::cookie::Cookie;
+    use actix_http::httpmessage::HttpMessage;
 
+    use actix_service::map_config;
+    use actix_web::dev::AppConfig;
     use serde_json::{json, Value};
     use std::str;
     use std::time::Duration as std_duration;
@@ -33,8 +35,8 @@ mod test{
     use ::mystore_lib::models::sale_product::NewSaleProduct;
     use ::mystore_lib::models::price::NewPriceProductsToUpdate;
 
-    #[test]
-    fn test() {
+    #[actix_rt::test]
+    async fn test() {
 
         let user = create_user();
 
@@ -43,55 +45,51 @@ mod test{
 
         let schema = std::sync::Arc::new(create_schema());
 
-        let srv = RefCell::new(TestServer::new(move || 
-            HttpService::new(
-                App::new()
-                    .wrap(
-                        IdentityService::new(
-                            CookieIdentityPolicy::new(dotenv!("SECRET_KEY").as_bytes())
-                                .domain("localhost")
-                                .name("mystorejwt")
-                                .path("/")
-                                .max_age(Duration::days(1).num_seconds())
-                                .secure(false)
+        let srv = RefCell::new(test_server(move || {
+            HttpService::build()
+                .h1(map_config(
+                    App::new()
+                        .wrap(
+                            IdentityService::new(
+                                CookieIdentityPolicy::new(dotenv!("SECRET_KEY").as_bytes())
+                                    .domain("localhost")
+                                    .name("mystorejwt")
+                                    .path("/")
+                                    .max_age(Duration::days(1).num_seconds())
+                                    .secure(false)
+                            )
                         )
-                    )
-                    .wrap(
-                        Cors::new()
-                            .allowed_origin("localhost")
-                            .allowed_methods(vec!["GET", "POST", "PUT", "PATCH", "DELETE"])
-                            .allowed_headers(vec![header::AUTHORIZATION,
-                                                  header::CONTENT_TYPE,
-                                                  header::ACCEPT,
-                                                  csrf_token_header.clone()])
-                            .expose_headers(vec![csrf_token_header.clone()])
-                            .max_age(3600)
-                    )
-                    .data(
-                        CsrfTokenGenerator::new(
-                            dotenv!("CSRF_TOKEN_KEY").as_bytes().to_vec(),
-                            Duration::hours(1)
+                        .wrap(
+                            Cors::new()
+                                .allowed_origin("localhost")
+                                .allowed_methods(vec!["GET", "POST", "PUT", "PATCH", "DELETE"])
+                                .allowed_headers(vec![header::AUTHORIZATION,
+                                                    header::CONTENT_TYPE,
+                                                    header::ACCEPT,
+                                                    csrf_token_header.clone()])
+                                .expose_headers(vec![csrf_token_header.clone()])
+                                .max_age(3600)
+                                .finish()
                         )
-                    )
-                    .data(establish_connection())
-                    .data(schema.clone())
-                    .service(
-                        web::resource("/graphql").route(web::post().to_async(graphql))
-                    )
-                    .service(
-                        web::resource("/graphiql").route(web::get().to(graphiql))
-                    )
-                    .service(
-                        web::resource("/auth")
-                            .route(web::post()
-                                .to_async(::mystore_lib::handlers::authentication::login))
-                            .route(web::delete()
-                                .to_async(::mystore_lib::handlers::authentication::logout))
-                    )
-            )
+                        .data(
+                            CsrfTokenGenerator::new(
+                                dotenv!("CSRF_TOKEN_KEY").as_bytes().to_vec(),
+                                Duration::hours(1)
+                            )
+                        )
+                        .data(establish_connection())
+                        .data(schema.clone())
+                        .service(graphql)
+                        .service(graphiql)
+                        .service(::mystore_lib::handlers::authentication::login)
+                        .service(::mystore_lib::handlers::authentication::logout)
+                    ,  |_| AppConfig::default(),
+                ))
+                .tcp()
+            }
         ));
 
-        let (csrf_token, request_cookie) = login(srv.borrow_mut());
+        let (csrf_token, request_cookie) = login(srv.borrow_mut()).await;
 
         let new_shoe = NewProduct {
             id: None,
@@ -148,7 +146,7 @@ mod test{
                         csrf_token.clone(),
                         request_cookie.clone(),
                         &new_sale,
-                        vec![&new_sale_product]);
+                        vec![&new_sale_product]).await;
 
         let sale = response_sale.get("data").unwrap().get("createSale").unwrap();
         let sale_id: i32 = serde_json::from_value(sale.get("sale").unwrap().get("id").unwrap().clone()).unwrap();
@@ -157,7 +155,7 @@ mod test{
                     csrf_token.clone(),
                     request_cookie.clone(),
                     &sale_id,
-                    sale);
+                    sale).await;
 
         let new_sale_to_update = NewSale {
             id: Some(sale_id),
@@ -184,7 +182,7 @@ mod test{
                         csrf_token.clone(),
                         request_cookie.clone(),
                         &new_sale_to_update,
-                        vec![&new_sale_product_hat]);
+                        vec![&new_sale_product_hat]).await;
 
         let sale = response_sale.get("data").unwrap().get("updateSale").unwrap();
         assert_eq!(sale.get("sale").unwrap().get("saleDate").unwrap(), "2019-11-10");
@@ -214,9 +212,9 @@ mod test{
             }
         });
 
-        search_sales(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), data_to_compare);
+        search_sales(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), data_to_compare).await;
 
-        let response_state = cancel_a_sale(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), sale_id);
+        let response_state = cancel_a_sale(srv.borrow_mut(), csrf_token.clone(), request_cookie.clone(), sale_id).await;
         let errors: Vec<Value> =
             serde_json::from_value(
                 response_state
@@ -240,7 +238,7 @@ mod test{
             approve_a_sale(srv.borrow_mut(),
                            csrf_token.clone(),
                            request_cookie.clone(),
-                           sale_id);
+                           sale_id).await;
         let state_result: bool = 
             serde_json::from_value(
                 response_state
@@ -256,7 +254,7 @@ mod test{
             destroy_a_sale(srv.borrow_mut(), 
                            csrf_token.clone(),
                            request_cookie.clone(),
-                           &sale_id);
+                           &sale_id).await;
         
         let destroyed: bool =
             serde_json::from_value(
@@ -274,7 +272,7 @@ mod test{
                         csrf_token.clone(),
                         request_cookie.clone(),
                         &new_sale,
-                        vec![&new_sale_product]);
+                        vec![&new_sale_product]).await;
 
         let sale = response_sale.get("data").unwrap().get("createSale").unwrap();
         let sale_id: i32 = serde_json::from_value(sale.get("sale").unwrap().get("id").unwrap().clone()).unwrap();
@@ -283,7 +281,7 @@ mod test{
             destroy_a_sale(srv.borrow_mut(), 
                            csrf_token.clone(),
                            request_cookie.clone(),
-                           &sale_id);
+                           &sale_id).await;
         
         let destroyed: bool =
             serde_json::from_value(
@@ -297,15 +295,18 @@ mod test{
         assert!(destroyed);
     }
 
-    fn login(mut srv: RefMut<TestServerRuntime>) -> (HeaderValue, Cookie) {
+    async fn login(srv: RefMut<'_, TestServer>) -> (HeaderValue, Cookie<'_>) {
         let request = srv
-                          .post("/auth")
+                          .post("/login")
                           .header(header::CONTENT_TYPE, "application/json")
                           .timeout(std_duration::from_secs(600));
+        
         let response =
-            srv
-                .block_on(request.send_body(r#"{"email":"jhon@doe.com","password":"12345678"}"#))
+            request
+                .send_body(r#"{"email":"jhon@doe.com","password":"12345678"}"#)
+                .await
                 .unwrap();
+
         let csrf_token = response.headers().get("x-csrf-token").unwrap();
         let cookies = response.cookies().unwrap();
         let cookie = cookies[0].clone().into_owned().value().to_string();
@@ -352,9 +353,9 @@ mod test{
         Product::create_product(&context, new_product, NewPriceProductsToUpdate{data: vec![]}).unwrap()
     }
 
-    fn create_a_sale(mut srv: RefMut<TestServerRuntime>,
+    async fn create_a_sale(srv: RefMut<'_, TestServer>,
                             csrf_token: HeaderValue,
-                            request_cookie: Cookie,
+                            request_cookie: Cookie<'_>,
                             new_sale: &NewSale,
                             new_sale_products: Vec<&NewSaleProduct>) -> Value {
 
@@ -427,22 +428,23 @@ mod test{
             .replace("\n", "");
 
         let mut response =
-            srv
-                .block_on(request.send_body(query))
+            request
+                .send_body(query)
+                .await
                 .unwrap();
 
         assert!(response.status().is_success());
 
-        let bytes = srv.block_on(response.body()).unwrap();
+        let bytes = response.body().await.unwrap();
         let body = str::from_utf8(&bytes).unwrap();
         serde_json::from_str(body).unwrap()
     }
 
-    fn show_a_sale(mut srv: RefMut<TestServerRuntime>,
-                       csrf_token: HeaderValue,
-                       request_cookie: Cookie,
-                       id: &i32,
-                       expected_sale: &Value) {
+    async fn show_a_sale(srv: RefMut<'_, TestServer>,
+                         csrf_token: HeaderValue,
+                         request_cookie: Cookie<'_>,
+                         id: &i32,
+                         expected_sale: &Value) {
 
         let query = format!(r#"
             {{
@@ -485,9 +487,11 @@ mod test{
                           .timeout(std_duration::from_secs(600));
 
         let mut response =
-            srv
-                .block_on(request.send_body(query))
+            request
+                .send_body(query)
+                .await
                 .unwrap();
+
         assert!(response.status().is_success());
 
         assert_eq!(
@@ -495,18 +499,18 @@ mod test{
             "application/json"
         );
 
-        let bytes = srv.block_on(response.body()).unwrap();
+        let bytes = response.body().await.unwrap();
         let body = str::from_utf8(&bytes).unwrap();
         let response_sale: Value = serde_json::from_str(body).unwrap();
         let sale = response_sale.get("data").unwrap().get("sale").unwrap();
         assert_eq!(sale, expected_sale);
     }
 
-    fn update_a_sale(mut srv: RefMut<TestServerRuntime>,
-                         csrf_token: HeaderValue,
-                         request_cookie: Cookie,
-                         changes_to_sale: &NewSale,
-                         changes_to_sale_products: Vec<&NewSaleProduct>) -> Value {
+    async fn update_a_sale(srv: RefMut<'_, TestServer>,
+                           csrf_token: HeaderValue,
+                           request_cookie: Cookie<'_>,
+                           changes_to_sale: &NewSale,
+                           changes_to_sale_products: Vec<&NewSaleProduct>) -> Value {
 
         let query = 
             format!(
@@ -578,21 +582,22 @@ mod test{
 
 
         let mut response =
-            srv
-                .block_on(request.send_body(query))
+            request
+                .send_body(query)
+                .await
                 .unwrap();
 
         assert!(response.status().is_success());
 
-        let bytes = srv.block_on(response.body()).unwrap();
+        let bytes = response.body().await.unwrap();
         let body = str::from_utf8(&bytes).unwrap();
         serde_json::from_str(body).unwrap()
     }
 
-    fn approve_a_sale(mut srv: RefMut<TestServerRuntime>,
-                         csrf_token: HeaderValue,
-                         request_cookie: Cookie,
-                         id: i32) -> Value {
+    async fn approve_a_sale(srv: RefMut<'_, TestServer>,
+                            csrf_token: HeaderValue,
+                            request_cookie: Cookie<'_>,
+                            id: i32) -> Value {
 
         let query = format!(r#"
             {{
@@ -615,20 +620,22 @@ mod test{
                           .timeout(std_duration::from_secs(600));
 
         let mut response =
-            srv
-                .block_on(request.send_body(query))
+            request
+                .send_body(query)
+                .await
                 .unwrap();
+
         assert!(response.status().is_success());
 
-        let bytes = srv.block_on(response.body()).unwrap();
+        let bytes = response.body().await.unwrap();
         let body = str::from_utf8(&bytes).unwrap();
         serde_json::from_str(body).unwrap()
     }
 
-    fn cancel_a_sale(mut srv: RefMut<TestServerRuntime>,
-                         csrf_token: HeaderValue,
-                         request_cookie: Cookie,
-                         id: i32) -> Value {
+    async fn cancel_a_sale(srv: RefMut<'_, TestServer>,
+                           csrf_token: HeaderValue,
+                           request_cookie: Cookie<'_>,
+                           id: i32) -> Value {
 
         let query = format!(r#"
             {{
@@ -651,20 +658,22 @@ mod test{
                           .timeout(std_duration::from_secs(600));
 
         let mut response =
-            srv
-                .block_on(request.send_body(query))
+            request
+                .send_body(query)
+                .await
                 .unwrap();
+
         assert!(response.status().is_success());
 
-        let bytes = srv.block_on(response.body()).unwrap();
+        let bytes = response.body().await.unwrap();
         let body = str::from_utf8(&bytes).unwrap();
         serde_json::from_str(body).unwrap()
     }
 
-    fn destroy_a_sale(mut srv: RefMut<TestServerRuntime>,
-                          csrf_token: HeaderValue,
-                          request_cookie: Cookie,
-                          id: &i32) -> Value {
+    async fn destroy_a_sale(srv: RefMut<'_, TestServer>,
+                            csrf_token: HeaderValue,
+                            request_cookie: Cookie<'_>,
+                            id: &i32) -> Value {
         let query = format!(r#"
             {{
                 "query": "
@@ -686,20 +695,22 @@ mod test{
                           .timeout(std_duration::from_secs(600));
 
         let mut response =
-            srv
-                .block_on(request.send_body(query))
+            request
+                .send_body(query)
+                .await
                 .unwrap();
+
         assert!(response.status().is_success());
 
-        let bytes = srv.block_on(response.body()).unwrap();
+        let bytes = response.body().await.unwrap();
         let body = str::from_utf8(&bytes).unwrap();
         serde_json::from_str(body).unwrap()
     }
 
-    fn search_sales(mut srv: RefMut<TestServerRuntime>,
-                        csrf_token: HeaderValue,
-                        request_cookie: Cookie,
-                        data_to_compare: Value) {
+    async fn search_sales(srv: RefMut<'_, TestServer>,
+                          csrf_token: HeaderValue,
+                          request_cookie: Cookie<'_>,
+                          data_to_compare: Value) {
 
         let query = format!(r#"
             {{
@@ -742,12 +753,14 @@ mod test{
                           .timeout(std_duration::from_secs(600));
 
         let mut response =
-            srv
-                .block_on(request.send_body(query))
+            request
+                .send_body(query)
+                .await
                 .unwrap();
+
         assert!(response.status().is_success());
 
-        let bytes = srv.block_on(response.body()).unwrap();
+        let bytes = response.body().await.unwrap();
         let body = str::from_utf8(&bytes).unwrap();
         let response_sales: Value = serde_json::from_str(body).unwrap();
         assert_eq!(data_to_compare, response_sales);

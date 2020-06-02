@@ -8,7 +8,6 @@ extern crate serde_derive;
 #[macro_use]
 extern crate diesel_derive_enum;
 
-extern crate actix;
 extern crate actix_web;
 extern crate actix_identity;
 extern crate actix_cors;

@@ -1,4 +1,4 @@
-use jwt::{decode, encode, Header, Validation};
+use jwt::{decode, encode, Header, Validation, DecodingKey, EncodingKey};
 use chrono::{Local, Duration};
 use actix_web::HttpResponse;
 
@@ -39,12 +39,12 @@ impl Claims {
 
 pub fn create_token(id: i32, email: &str, company: &str) -> Result<String, HttpResponse> {
     let claims = Claims::with_email(id, email, company);
-    encode(&Header::default(), &claims, get_secret())
+    encode(&Header::default(), &claims, &EncodingKey::from_secret(get_secret()))
         .map_err(|e| HttpResponse::InternalServerError().json(e.to_string()))
 }
 
 pub fn decode_token(token: &str) -> Result<SlimUser, HttpResponse> {
-    decode::<Claims>(token, get_secret(), &Validation::default())
+    decode::<Claims>(token, &DecodingKey::from_secret(get_secret()), &Validation::default())
         .map(|data| data.claims.into())
         .map_err(|e| HttpResponse::Unauthorized().json(e.to_string()))
 }
