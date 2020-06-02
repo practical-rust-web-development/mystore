@@ -1189,7 +1189,7 @@ dependencies = [
 
 [[package]]
 name = "mystore"
-version = "11.0.0"
+version = "12.0.0"
 dependencies = [
  "actix-cors 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "actix-http 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
