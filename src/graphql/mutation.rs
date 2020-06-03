@@ -1,11 +1,11 @@
-use juniper::FieldResult;
-use crate::models::Context;
-use crate::models::sale::{FormSale, Sale, FullSale};
-use crate::models::sale_product::FormSaleProducts;
 use crate::models::price::FormPriceProductsToUpdate;
-use crate::models::product::{FullProduct, Product, FormProduct};
-use crate::models::sale_state::Event;
 use crate::models::price::{FormPrice, Price};
+use crate::models::product::{FormProduct, FullProduct, Product};
+use crate::models::sale::{FormSale, FullSale, Sale};
+use crate::models::sale_product::FormSaleProducts;
+use crate::models::sale_state::Event;
+use crate::models::Context;
+use juniper::FieldResult;
 
 pub struct Mutation;
 
