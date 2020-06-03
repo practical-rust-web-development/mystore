@@ -1,9 +1,12 @@
 pub mod price;
-pub mod user;
 pub mod product;
 pub mod sale;
 pub mod sale_product;
 pub mod sale_state;
+pub mod user;
+
+use crate::db_connection::PgPooledConnection;
+use std::sync::Arc;
 
 pub fn show_query<T>(query: &T)
 where
@@ -11,9 +14,6 @@ where
 {
     dbg!(diesel::debug_query::<diesel::pg::Pg, _>(&query));
 }
-
-use std::sync::Arc;
-use crate::db_connection::PgPooledConnection;
 
 pub struct Context {
     pub user_id: i32,
