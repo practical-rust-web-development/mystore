@@ -30,7 +30,7 @@ pub struct FullSaleProduct {
 #[table_name="sale_products"]
 #[derive(juniper::GraphQLInputObject)]
 #[graphql(description="Relationship between sale and products")]
-pub struct NewSaleProduct {
+pub struct FormSaleProduct {
     pub id: Option<i32>,
     pub product_id: Option<i32>,
     pub sale_id: Option<i32>,
@@ -43,10 +43,10 @@ pub struct NewSaleProduct {
 
 #[derive(juniper::GraphQLInputObject)]
 #[derive(Debug, Clone)]
-pub struct FullNewSaleProduct {
-    pub sale_product: NewSaleProduct,
+pub struct FullFormSaleProduct {
+    pub sale_product: FormSaleProduct,
     pub product: NewProduct
 }
 
 #[derive(juniper::GraphQLInputObject)]
-pub struct NewSaleProducts{ pub data: Vec<FullNewSaleProduct> }
+pub struct FormSaleProducts{ pub data: Vec<FullFormSaleProduct> }

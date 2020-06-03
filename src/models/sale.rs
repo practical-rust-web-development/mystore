@@ -39,7 +39,7 @@ pub struct Form {
 }
 
 use crate::models::sale_product::{
-    FullNewSaleProduct, FullSaleProduct, NewSaleProduct, NewSaleProducts, SaleProduct,
+    FullFormSaleProduct, FullSaleProduct, FormSaleProduct, FormSaleProducts, SaleProduct,
 };
 
 #[derive(Debug, Clone, juniper::GraphQLObject)]
@@ -51,7 +51,7 @@ pub struct FullSale {
 #[derive(Debug, Clone, juniper::GraphQLObject)]
 pub struct FullForm {
     pub sale: Form,
-    pub sale_products: Vec<FullNewSaleProduct>,
+    pub sale_products: Vec<FullFormSaleProduct>,
 }
 
 #[derive(Debug, Clone, juniper::GraphQLObject)]
@@ -212,7 +212,7 @@ impl Sale {
     pub fn create(
         context: &Context,
         form: Form,
-        param_new_sale_products: NewSaleProducts,
+        param_new_sale_products: FormSaleProducts,
     ) -> FieldResult<FullSale> {
         use diesel::{Connection, QueryDsl, RunQueryDsl};
 
@@ -241,7 +241,7 @@ impl Sale {
                 .data
                 .into_iter()
                 .map(|param_new_sale_product| {
-                    let new_sale_product = NewSaleProduct {
+                    let new_sale_product = FormSaleProduct {
                         sale_id: Some(sale.id),
                         ..param_new_sale_product.sale_product
                     };
@@ -285,7 +285,7 @@ impl Sale {
     pub fn update(
         context: &Context,
         form: Form,
-        sale_products: NewSaleProducts,
+        sale_products: FormSaleProducts,
     ) -> FieldResult<FullSale> {
         use crate::schema::sales::dsl;
         use diesel::BoolExpressionMethods;

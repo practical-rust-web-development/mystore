@@ -1,7 +1,7 @@
 use juniper::FieldResult;
 use crate::models::Context;
 use crate::models::sale;
-use crate::models::sale_product::NewSaleProducts;
+use crate::models::sale_product::FormSaleProducts;
 use crate::models::price::NewPriceProductsToUpdate;
 use crate::models::product::{FullProduct, Product, NewProduct};
 use crate::models::sale_state::Event;
@@ -16,9 +16,9 @@ impl Mutation {
     fn createSale(
         context: &Context,
         form: sale::Form,
-        param_new_sale_products: NewSaleProducts,
+        param_form_sale_products: FormSaleProducts,
     ) -> FieldResult<sale::FullSale> {
-        sale::Sale::create(context, form, param_new_sale_products)
+        sale::Sale::create(context, form, param_form_sale_products)
     }
 
     fn approveSale(context: &Context, sale_id: i32) -> FieldResult<bool> {
@@ -43,7 +43,7 @@ impl Mutation {
     fn updateSale(
         context: &Context,
         form: sale::Form,
-        param_sale_products: NewSaleProducts,
+        param_sale_products: FormSaleProducts,
     ) -> FieldResult<sale::FullSale> {
         sale::Sale::update(context, form, param_sale_products)
     }

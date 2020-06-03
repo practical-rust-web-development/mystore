@@ -32,7 +32,7 @@ mod test{
     use ::mystore_lib::graphql::{graphql, graphiql};
     use ::mystore_lib::models::sale;
     use ::mystore_lib::models::sale_state::SaleState;
-    use ::mystore_lib::models::sale_product::NewSaleProduct;
+    use ::mystore_lib::models::sale_product::FormSaleProduct;
     use ::mystore_lib::models::price::NewPriceProductsToUpdate;
 
     #[actix_rt::test]
@@ -130,7 +130,7 @@ mod test{
             state: Some(SaleState::Draft)
         };
 
-        let new_sale_product = NewSaleProduct {
+        let new_sale_product = FormSaleProduct {
             id: None,
             product_id: Some(shoe.id),
             sale_id: None,
@@ -166,7 +166,7 @@ mod test{
             state: Some(SaleState::Draft)
         };
 
-        let new_sale_product_hat = NewSaleProduct {
+        let new_sale_product_hat = FormSaleProduct {
             id: None,
             product_id: Some(hat.id),
             sale_id: None,
@@ -357,7 +357,7 @@ mod test{
                             csrf_token: HeaderValue,
                             request_cookie: Cookie<'_>,
                             new_sale: &sale::Form,
-                            new_sale_products: Vec<&NewSaleProduct>) -> Value {
+                            new_sale_products: Vec<&FormSaleProduct>) -> Value {
 
         let request = srv
                           .post("/graphql")
@@ -371,8 +371,8 @@ mod test{
             r#"
             {{
                 "query": "
-                    mutation CreateSale($form: Form!, $paramNewSaleProducts: NewSaleProducts!) {{
-                            createSale(form: $form, paramNewSaleProducts: $paramNewSaleProducts) {{
+                    mutation CreateSale($form: Form!, $paramFormSaleProducts: FormSaleProducts!) {{
+                            createSale(form: $form, paramFormSaleProducts: $paramFormSaleProducts) {{
                                 sale {{
                                     id
                                     userId
@@ -402,7 +402,7 @@ mod test{
                         "saleDate": "{}",
                         "total": {}
                     }},
-                    "paramNewSaleProducts": {{
+                    "paramFormSaleProducts": {{
                         "data":
                             [{{
                                 "product": {{ }},
@@ -437,6 +437,7 @@ mod test{
 
         let bytes = response.body().await.unwrap();
         let body = str::from_utf8(&bytes).unwrap();
+        println!("{:#?}", &body);
         serde_json::from_str(body).unwrap()
     }
 
@@ -510,14 +511,14 @@ mod test{
                            csrf_token: HeaderValue,
                            request_cookie: Cookie<'_>,
                            changes_to_sale: &sale::Form,
-                           changes_to_sale_products: Vec<&NewSaleProduct>) -> Value {
+                           changes_to_sale_products: Vec<&FormSaleProduct>) -> Value {
 
         let query = 
             format!(
             r#"
             {{
                 "query": "
-                    mutation UpdateSale($form: Form!, $paramSaleProducts: NewSaleProducts!) {{
+                    mutation UpdateSale($form: Form!, $paramSaleProducts: FormSaleProducts!) {{
                             updateSale(form: $form, paramSaleProducts: $paramSaleProducts) {{
                                 sale {{
                                     id
