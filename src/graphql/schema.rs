@@ -1,5 +1,5 @@
-use crate::graphql::query::Query;
 use crate::graphql::mutation::Mutation;
+use crate::graphql::query::Query;
 
 pub type Schema = juniper::RootNode<'static, Query, Mutation>;
 
