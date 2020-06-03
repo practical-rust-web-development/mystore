@@ -30,7 +30,7 @@ mod test{
     use ::mystore_lib::models::user::{ NewUser, User };
     use ::mystore_lib::graphql::schema::create_schema;
     use ::mystore_lib::graphql::{graphql, graphiql};
-    use ::mystore_lib::models::sale;
+    use ::mystore_lib::models::sale::FormSale;
     use ::mystore_lib::models::sale_state::SaleState;
     use ::mystore_lib::models::sale_product::FormSaleProduct;
     use ::mystore_lib::models::price::NewPriceProductsToUpdate;
@@ -121,7 +121,7 @@ mod test{
         let shoe = create_product(user.id, new_shoe).product;
         let hat = create_product(user.id, new_hat).product;
 
-        let new_sale = sale::Form {
+        let new_sale = FormSale {
             id: None,
             user_id: None,
             sale_date: Some(NaiveDate::from_ymd(2019, 11, 12)),
@@ -157,7 +157,7 @@ mod test{
                     &sale_id,
                     sale).await;
 
-        let new_sale_to_update = sale::Form {
+        let new_sale_to_update = FormSale {
             id: Some(sale_id),
             user_id: None,
             sale_date: Some(NaiveDate::from_ymd(2019, 11, 10)),
@@ -356,7 +356,7 @@ mod test{
     async fn create_a_sale(srv: RefMut<'_, TestServer>,
                             csrf_token: HeaderValue,
                             request_cookie: Cookie<'_>,
-                            new_sale: &sale::Form,
+                            new_sale: &FormSale,
                             new_sale_products: Vec<&FormSaleProduct>) -> Value {
 
         let request = srv
@@ -371,7 +371,7 @@ mod test{
             r#"
             {{
                 "query": "
-                    mutation CreateSale($form: Form!, $paramFormSaleProducts: FormSaleProducts!) {{
+                    mutation CreateSale($form: FormSale!, $paramFormSaleProducts: FormSaleProducts!) {{
                             createSale(form: $form, paramFormSaleProducts: $paramFormSaleProducts) {{
                                 sale {{
                                     id
@@ -437,7 +437,6 @@ mod test{
 
         let bytes = response.body().await.unwrap();
         let body = str::from_utf8(&bytes).unwrap();
-        println!("{:#?}", &body);
         serde_json::from_str(body).unwrap()
     }
 
@@ -510,7 +509,7 @@ mod test{
     async fn update_a_sale(srv: RefMut<'_, TestServer>,
                            csrf_token: HeaderValue,
                            request_cookie: Cookie<'_>,
-                           changes_to_sale: &sale::Form,
+                           changes_to_sale: &FormSale,
                            changes_to_sale_products: Vec<&FormSaleProduct>) -> Value {
 
         let query = 
@@ -518,7 +517,7 @@ mod test{
             r#"
             {{
                 "query": "
-                    mutation UpdateSale($form: Form!, $paramSaleProducts: FormSaleProducts!) {{
+                    mutation UpdateSale($form: FormSale!, $paramSaleProducts: FormSaleProducts!) {{
                             updateSale(form: $form, paramSaleProducts: $paramSaleProducts) {{
                                 sale {{
                                     id
@@ -716,7 +715,7 @@ mod test{
         let query = format!(r#"
             {{
                 "query": "
-                    query ListSale($search: Form!, $limit: Int!) {{
+                    query ListSale($search: FormSale!, $limit: Int!) {{
                         listSale(search: $search, limit: $limit) {{
                             data {{
                                 sale {{

@@ -1,6 +1,6 @@
 use juniper::FieldResult;
 use crate::models::Context;
-use crate::models::sale;
+use crate::models::sale::{FormSale, Sale, FullSale};
 use crate::models::sale_product::FormSaleProducts;
 use crate::models::price::NewPriceProductsToUpdate;
 use crate::models::product::{FullProduct, Product, NewProduct};
@@ -15,41 +15,41 @@ pub struct Mutation;
 impl Mutation {
     fn createSale(
         context: &Context,
-        form: sale::Form,
+        form: FormSale,
         param_form_sale_products: FormSaleProducts,
-    ) -> FieldResult<sale::FullSale> {
-        sale::Sale::create(context, form, param_form_sale_products)
+    ) -> FieldResult<FullSale> {
+        Sale::create(context, form, param_form_sale_products)
     }
 
     fn approveSale(context: &Context, sale_id: i32) -> FieldResult<bool> {
-        sale::Sale::set_state(context, sale_id, Event::Approve)
+        Sale::set_state(context, sale_id, Event::Approve)
     }
 
     fn cancelSale(context: &Context, sale_id: i32) -> FieldResult<bool> {
         //TODO: perform credit note or debit note
-        sale::Sale::set_state(context, sale_id, Event::Cancel)
+        Sale::set_state(context, sale_id, Event::Cancel)
     }
 
     fn paySale(context: &Context, sale_id: i32) -> FieldResult<bool> {
         //TODO: perform collection
-        sale::Sale::set_state(context, sale_id, Event::Pay)
+        Sale::set_state(context, sale_id, Event::Pay)
     }
 
     fn partiallyPaySale(context: &Context, sale_id: i32) -> FieldResult<bool> {
         //TODO: perform collection
-        sale::Sale::set_state(context, sale_id, Event::PartiallyPay)
+        Sale::set_state(context, sale_id, Event::PartiallyPay)
     }
 
     fn updateSale(
         context: &Context,
-        form: sale::Form,
+        form: FormSale,
         param_sale_products: FormSaleProducts,
-    ) -> FieldResult<sale::FullSale> {
-        sale::Sale::update(context, form, param_sale_products)
+    ) -> FieldResult<FullSale> {
+        Sale::update(context, form, param_sale_products)
     }
 
     fn destroySale(context: &Context, sale_id: i32) -> FieldResult<bool> {
-        sale::Sale::destroy(context, sale_id)
+        Sale::destroy(context, sale_id)
     }
 
     fn createProduct(

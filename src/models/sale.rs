@@ -29,7 +29,7 @@ pub struct Sale {
 #[table_name = "sales"]
 #[derive(juniper::GraphQLInputObject)]
 #[graphql(description = "Sale Bill")]
-pub struct Form {
+pub struct FormSale {
     pub id: Option<i32>,
     pub sale_date: Option<NaiveDate>,
     pub user_id: Option<i32>,
@@ -50,7 +50,7 @@ pub struct FullSale {
 
 #[derive(Debug, Clone, juniper::GraphQLObject)]
 pub struct FullForm {
-    pub sale: Form,
+    pub sale: FormSale,
     pub sale_products: Vec<FullFormSaleProduct>,
 }
 
@@ -76,7 +76,7 @@ type BoxedQuery<'a> = diesel::query_builder::BoxedSelectStatement<
 >;
 
 impl Sale {
-    fn searching_records<'a>(search: Option<Form>) -> BoxedQuery<'a> {
+    fn searching_records<'a>(search: Option<FormSale>) -> BoxedQuery<'a> {
         use crate::schema::sales::dsl::*;
         use diesel::ExpressionMethods;
         use diesel::QueryDsl;
@@ -116,7 +116,7 @@ impl Sale {
         Ok(true)
     }
 
-    pub fn list_sale(context: &Context, search: Option<Form>, limit: i32) -> FieldResult<ListSale> {
+    pub fn list_sale(context: &Context, search: Option<FormSale>, limit: i32) -> FieldResult<ListSale> {
         use diesel::{ExpressionMethods, GroupedBy, QueryDsl, RunQueryDsl};
         let conn: &PgConnection = &context.conn;
         let query = Sale::searching_records(search);
@@ -211,14 +211,14 @@ impl Sale {
 
     pub fn create(
         context: &Context,
-        form: Form,
+        form: FormSale,
         param_new_sale_products: FormSaleProducts,
     ) -> FieldResult<FullSale> {
         use diesel::{Connection, QueryDsl, RunQueryDsl};
 
         let conn: &PgConnection = &context.conn;
 
-        let new_sale = Form {
+        let new_sale = FormSale {
             user_id: Some(context.user_id),
             state: Some(SaleState::Draft),
             ..form
@@ -284,7 +284,7 @@ impl Sale {
 
     pub fn update(
         context: &Context,
-        form: Form,
+        form: FormSale,
         sale_products: FormSaleProducts,
     ) -> FieldResult<FullSale> {
         use crate::schema::sales::dsl;
