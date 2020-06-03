@@ -16,9 +16,17 @@ impl Mutation {
     fn createSale(
         context: &Context,
         form: FormSale,
-        param_form_sale_products: FormSaleProducts,
+        form_sale_products: FormSaleProducts,
     ) -> FieldResult<FullSale> {
-        Sale::create(context, form, param_form_sale_products)
+        Sale::create(context, form, form_sale_products)
+    }
+
+    fn updateSale(
+        context: &Context,
+        form: FormSale,
+        form_sale_products: FormSaleProducts,
+    ) -> FieldResult<FullSale> {
+        Sale::update(context, form, form_sale_products)
     }
 
     fn approveSale(context: &Context, sale_id: i32) -> FieldResult<bool> {
@@ -38,14 +46,6 @@ impl Mutation {
     fn partiallyPaySale(context: &Context, sale_id: i32) -> FieldResult<bool> {
         //TODO: perform collection
         Sale::set_state(context, sale_id, Event::PartiallyPay)
-    }
-
-    fn updateSale(
-        context: &Context,
-        form: FormSale,
-        param_sale_products: FormSaleProducts,
-    ) -> FieldResult<FullSale> {
-        Sale::update(context, form, param_sale_products)
     }
 
     fn destroySale(context: &Context, sale_id: i32) -> FieldResult<bool> {

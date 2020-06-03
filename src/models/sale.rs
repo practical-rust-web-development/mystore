@@ -49,7 +49,7 @@ pub struct FullSale {
 }
 
 #[derive(Debug, Clone, juniper::GraphQLObject)]
-pub struct FullForm {
+pub struct FullFormSale {
     pub sale: FormSale,
     pub sale_products: Vec<FullFormSaleProduct>,
 }
@@ -212,7 +212,7 @@ impl Sale {
     pub fn create(
         context: &Context,
         form: FormSale,
-        param_new_sale_products: FormSaleProducts,
+        form_sale_products: FormSaleProducts,
     ) -> FieldResult<FullSale> {
         use diesel::{Connection, QueryDsl, RunQueryDsl};
 
@@ -237,7 +237,7 @@ impl Sale {
                 ))
                 .get_result::<Sale>(conn)?;
 
-            let sale_products: Result<Vec<FullSaleProduct>, _> = param_new_sale_products
+            let sale_products: Result<Vec<FullSaleProduct>, _> = form_sale_products
                 .data
                 .into_iter()
                 .map(|param_new_sale_product| {
@@ -285,7 +285,7 @@ impl Sale {
     pub fn update(
         context: &Context,
         form: FormSale,
-        sale_products: FormSaleProducts,
+        form_sale_products: FormSaleProducts,
     ) -> FieldResult<FullSale> {
         use crate::schema::sales::dsl;
         use diesel::BoolExpressionMethods;
@@ -314,7 +314,7 @@ impl Sale {
             .set(&form)
             .get_result::<Sale>(conn)?;
 
-            let updated_sale_products: Result<Vec<FullSaleProduct>, _> = sale_products
+            let updated_sale_products: Result<Vec<FullSaleProduct>, _> = form_sale_products
                 .data
                 .into_iter()
                 .map(|param_sale_product| {

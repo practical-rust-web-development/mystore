@@ -371,8 +371,8 @@ mod test{
             r#"
             {{
                 "query": "
-                    mutation CreateSale($form: FormSale!, $paramFormSaleProducts: FormSaleProducts!) {{
-                            createSale(form: $form, paramFormSaleProducts: $paramFormSaleProducts) {{
+                    mutation CreateSale($form: FormSale!, $formSaleProducts: FormSaleProducts!) {{
+                            createSale(form: $form, formSaleProducts: $formSaleProducts) {{
                                 sale {{
                                     id
                                     userId
@@ -402,7 +402,7 @@ mod test{
                         "saleDate": "{}",
                         "total": {}
                     }},
-                    "paramFormSaleProducts": {{
+                    "formSaleProducts": {{
                         "data":
                             [{{
                                 "product": {{ }},
@@ -517,8 +517,8 @@ mod test{
             r#"
             {{
                 "query": "
-                    mutation UpdateSale($form: FormSale!, $paramSaleProducts: FormSaleProducts!) {{
-                            updateSale(form: $form, paramSaleProducts: $paramSaleProducts) {{
+                    mutation UpdateSale($form: FormSale!, $formSaleProducts: FormSaleProducts!) {{
+                            updateSale(form: $form, formSaleProducts: $formSaleProducts) {{
                                 sale {{
                                     id
                                     saleDate
@@ -545,7 +545,7 @@ mod test{
                         "saleDate": "{}",
                         "total": {}
                     }},
-                    "paramSaleProducts": {{
+                    "formSaleProducts": {{
                         "data":
                             [{{
                                 "product": {{}},
