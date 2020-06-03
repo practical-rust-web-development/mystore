@@ -3,7 +3,7 @@ use crate::models::Context;
 use crate::models::sale::{FormSale, Sale, FullSale};
 use crate::models::sale_product::FormSaleProducts;
 use crate::models::price::NewPriceProductsToUpdate;
-use crate::models::product::{FullProduct, Product, NewProduct};
+use crate::models::product::{FullProduct, Product, FormProduct};
 use crate::models::sale_state::Event;
 use crate::models::price::{NewPrice, Price};
 
@@ -54,30 +54,30 @@ impl Mutation {
 
     fn createProduct(
         context: &Context,
-        param_new_product: NewProduct,
-        param_new_price_products: NewPriceProductsToUpdate,
+        form: FormProduct,
+        form_price_products: NewPriceProductsToUpdate,
     ) -> FieldResult<FullProduct> {
-        Product::create(context, param_new_product, param_new_price_products)
+        Product::create(context, form, form_price_products)
     }
 
     fn updateProduct(
         context: &Context,
-        param_product: NewProduct,
-        param_price_products: NewPriceProductsToUpdate,
+        form: FormProduct,
+        form_price_products: NewPriceProductsToUpdate,
     ) -> FieldResult<FullProduct> {
-        Product::update(context, param_product, param_price_products)
+        Product::update(context, form, form_price_products)
     }
 
     fn destroyProduct(context: &Context, product_id: i32) -> FieldResult<bool> {
         Product::destroy(context, product_id)
     }
 
-    fn createPrice(context: &Context, new_price: NewPrice) -> FieldResult<Price> {
-        Price::create(context, new_price)
+    fn createPrice(context: &Context, form: NewPrice) -> FieldResult<Price> {
+        Price::create(context, form)
     }
 
-    fn updatePrice(context: &Context, edit_price: NewPrice) -> FieldResult<Price> {
-        Price::update(context, edit_price)
+    fn updatePrice(context: &Context, form: NewPrice) -> FieldResult<Price> {
+        Price::update(context, form)
     }
 
     fn destroyPrice(context: &Context, price_id: i32) -> FieldResult<bool> {

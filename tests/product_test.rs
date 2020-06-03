@@ -24,7 +24,7 @@ mod test{
     use crate::common::db_connection::establish_connection;
     use std::cell::{RefCell, RefMut};
 
-    use ::mystore_lib::models::product::{NewProduct};
+    use ::mystore_lib::models::product::{FormProduct};
     use ::mystore_lib::models::user::{NewUser, User};
     use ::mystore_lib::models::price::{ 
         PriceProductToUpdate, 
@@ -90,7 +90,7 @@ mod test{
 
         let (csrf_token, request_cookie) = login(srv.borrow_mut()).await;
 
-        let shoe = NewProduct {
+        let shoe = FormProduct {
             id: None,
             name: Some("Shoe".to_string()),
             stock: Some(10.4),
@@ -99,7 +99,7 @@ mod test{
             user_id: None
         };
 
-        let hat = NewProduct {
+        let hat = FormProduct {
             id: None,
             name: Some("Hat".to_string()),
             stock: Some(15.0),
@@ -108,7 +108,7 @@ mod test{
             user_id: None
         };
 
-        let pants = NewProduct {
+        let pants = FormProduct {
             id: None,
             name: Some("Pants".to_string()),
             stock: Some(25.0),
@@ -161,33 +161,30 @@ mod test{
         };
 
         let response_shoe_db = create_a_product(srv.borrow_mut(),
-                                       csrf_token.clone(),
-                                       request_cookie.clone(),
-                                       &shoe,
-                                       all_prices.clone());
+                                                csrf_token.clone(),
+                                                request_cookie.clone(),
+                                                &shoe,
+                                                all_prices.clone()).await;
 
-        let shoe_db_value = response_shoe_db.await;
-        let shoe_db = shoe_db_value.get("data").unwrap().get("createProduct").unwrap();
+        let shoe_db = response_shoe_db.get("data").unwrap().get("createProduct").unwrap();
         let shoe_id: i32 = serde_json::from_value(shoe_db.get("product").unwrap().get("id").unwrap().clone()).unwrap();
 
         let response_hat_db = create_a_product(srv.borrow_mut(),
-                                      csrf_token.clone(),
-                                      request_cookie.clone(),
-                                      &hat,
-                                      all_prices.clone());
+                                               csrf_token.clone(),
+                                               request_cookie.clone(),
+                                               &hat,
+                                               all_prices.clone()).await;
 
-        let hat_db_value = response_hat_db.await;
-        let hat_db = hat_db_value.get("data").unwrap().get("createProduct").unwrap();
+        let hat_db = response_hat_db.get("data").unwrap().get("createProduct").unwrap();
         let hat_id: i32 = serde_json::from_value(hat_db.get("product").unwrap().get("id").unwrap().clone()).unwrap();
 
         let response_pants_db = create_a_product(srv.borrow_mut(),
-                                        csrf_token.clone(), 
-                                        request_cookie.clone(), 
-                                        &pants,
-                                        all_prices.clone());
+                                                 csrf_token.clone(), 
+                                                 request_cookie.clone(), 
+                                                 &pants,
+                                                 all_prices.clone()).await;
 
-        let pants_db_value = response_pants_db.await;
-        let pants_db = pants_db_value.get("data").unwrap().get("createProduct").unwrap();
+        let pants_db = response_pants_db.get("data").unwrap().get("createProduct").unwrap();
         let pants_id: i32 = serde_json::from_value(pants_db.get("product").unwrap().get("id").unwrap().clone()).unwrap();
 
         show_a_product(srv.borrow_mut(), 
@@ -196,7 +193,7 @@ mod test{
                        shoe_id, 
                        &shoe_db).await;
 
-        let updated_hat = NewProduct {
+        let updated_hat = FormProduct {
             id: None,
             name: Some("Hat".to_string()),
             stock: Some(30.0),
@@ -215,12 +212,11 @@ mod test{
             destroy_a_product(srv.borrow_mut(), 
                               csrf_token.clone(), 
                               request_cookie.clone(), 
-                              &pants_id);
+                              &pants_id).await;
         
-        let product_destroyed_value = response_product_destroyed.await;
         let destroyed: bool =
             serde_json::from_value(
-                product_destroyed_value
+                response_product_destroyed
                     .get("data")
                     .unwrap()
                     .get("destroyProduct")
@@ -317,7 +313,7 @@ mod test{
     async fn create_a_product(srv: RefMut<'_, TestServer>,
                               csrf_token: HeaderValue,
                               request_cookie: Cookie<'_>,
-                              product: &NewProduct,
+                              product: &FormProduct,
                               prices: NewPriceProductsToUpdate) -> Value {
         
         let request = srv
@@ -348,8 +344,8 @@ mod test{
             r#"
             {{
                 "query": "
-                    mutation CreateProduct($paramNewProduct: NewProduct!, $paramNewPriceProducts: NewPriceProductsToUpdate!) {{
-                            createProduct(paramNewProduct: $paramNewProduct, paramNewPriceProducts: $paramNewPriceProducts) {{
+                    mutation CreateProduct($form: FormProduct!, $formPriceProducts: NewPriceProductsToUpdate!) {{
+                            createProduct(form: $form, formPriceProducts: $formPriceProducts) {{
                                 product {{
                                     id
                                     name
@@ -375,13 +371,13 @@ mod test{
                     }}
                 ",
                 "variables": {{
-                    "paramNewProduct": {{
+                    "form": {{
                         "name": "{}",
                         "stock": {},
                         "cost": {},
                         "description": "{}"
                     }},
-                    "paramNewPriceProducts": {{ "data": [{}] }}
+                    "formPriceProducts": {{ "data": [{}] }}
                 }}
             }}"#,
             product.clone().name.unwrap(),
@@ -474,7 +470,7 @@ mod test{
     async fn update_a_product(srv: RefMut<'_, TestServer>,
                               csrf_token: HeaderValue,
                               request_cookie: Cookie<'_>,
-                              changes_to_product: &NewProduct,
+                              changes_to_product: &FormProduct,
                               prices: NewPriceProductsToUpdate) -> Value {
 
         let prices_to_s: Vec<String> = prices.data.iter().map(|price| {
@@ -498,8 +494,8 @@ mod test{
             r#"
             {{
                 "query": "
-                    mutation UpdateProduct($paramNewProduct: NewProduct!, $paramNewPriceProducts: NewPriceProductsToUpdate!) {{
-                            updateProduct(paramNewProduct: $paramNewProduct, paramNewPriceProducts: $paramNewPriceProducts) {{
+                    mutation UpdateProduct($paramFormProduct: FormProduct!, $paramNewPriceProducts: NewPriceProductsToUpdate!) {{
+                            updateProduct(paramFormProduct: $paramFormProduct, paramNewPriceProducts: $paramNewPriceProducts) {{
                                 product {{
                                     id
                                     name
@@ -525,7 +521,7 @@ mod test{
                     }}
                 ",
                 "variables": {{
-                    "paramNewProduct": {{
+                    "paramFormProduct": {{
                         "name": "{}",
                         "stock": {},
                         "cost": {},
@@ -674,8 +670,8 @@ mod test{
             r#"
             {{
                 "query": "
-                    mutation createPrice($newPrice: NewPrice!) {{
-                            createPrice(newPrice: $newPrice) {{
+                    mutation createPrice($form: NewPrice!) {{
+                            createPrice(form: $form) {{
                                 id
                                 name
                                 userId
@@ -683,7 +679,7 @@ mod test{
                     }}
                 ",
                 "variables": {{
-                    "newPrice": {{
+                    "form": {{
                         "name": "{}"
                     }}
                 }}
@@ -697,11 +693,10 @@ mod test{
                 .await
                 .unwrap();
 
-        //assert!(response.status().is_success());
+        assert!(response.status().is_success());
 
         let bytes = response.body().await.unwrap();
         let body = str::from_utf8(&bytes).unwrap();
-        println!("{:#?}", &body);
         serde_json::from_str(body).unwrap()
     }
 }

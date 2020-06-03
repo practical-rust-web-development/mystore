@@ -1,6 +1,6 @@
 use crate::schema::sale_products;
 use crate::models::sale::Sale;
-use crate::models::product::{ Product, NewProduct };
+use crate::models::product::{ Product, FormProduct };
 
 #[derive(Identifiable, Associations, Queryable, Debug, Clone, PartialEq)]
 #[table_name="sale_products"]
@@ -45,7 +45,7 @@ pub struct FormSaleProduct {
 #[derive(Debug, Clone)]
 pub struct FullFormSaleProduct {
     pub sale_product: FormSaleProduct,
-    pub product: NewProduct
+    pub product: FormProduct
 }
 
 #[derive(juniper::GraphQLInputObject)]

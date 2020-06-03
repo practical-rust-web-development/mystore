@@ -60,7 +60,7 @@ pub const PRODUCT_COLUMNS: ProductColumns = (
     juniper::GraphQLInputObject,
 )]
 #[table_name = "products"]
-pub struct NewProduct {
+pub struct FormProduct {
     pub id: Option<i32>,
     pub name: Option<String>,
     pub stock: Option<f64>,
@@ -134,7 +134,7 @@ impl Product {
 
     pub fn create(
         context: &Context,
-        param_new_product: NewProduct,
+        form: FormProduct,
         prices: NewPriceProductsToUpdate,
     ) -> FieldResult<FullProduct> {
         use diesel::RunQueryDsl;
@@ -142,9 +142,9 @@ impl Product {
         let connection: &PgConnection = &context.conn;
         let user_id = context.user_id;
 
-        let new_product = NewProduct {
+        let new_product = FormProduct {
             user_id: Some(user_id),
-            ..param_new_product
+            ..form
         };
 
         let product = diesel::insert_into(products::table)
@@ -213,7 +213,7 @@ impl Product {
 
     pub fn update(
         context: &Context,
-        new_product: NewProduct,
+        form: FormProduct,
         prices: NewPriceProductsToUpdate,
     ) -> FieldResult<FullProduct> {
         use crate::schema::products::dsl;
@@ -223,15 +223,15 @@ impl Product {
 
         let connection: &PgConnection = &context.conn;
         let param_user_id = context.user_id;
-        let product_id = new_product
+        let product_id = form
             .id
             .ok_or(diesel::result::Error::QueryBuilderError(
                 "missing id".into(),
             ))?;
 
-        let new_product_to_replace = NewProduct {
+        let new_product_to_replace = FormProduct {
             user_id: Some(param_user_id),
-            ..new_product.clone()
+            ..form.clone()
         };
 
         let product =
@@ -251,7 +251,7 @@ impl Product {
     }
 }
 
-impl PartialEq<Product> for NewProduct {
+impl PartialEq<Product> for FormProduct {
     fn eq(&self, other: &Product) -> bool {
         let new_product = self.clone();
         let product = other.clone();

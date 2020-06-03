@@ -26,7 +26,7 @@ mod test{
     use crate::common::db_connection::establish_connection;
     use std::cell::{RefCell, RefMut};
 
-    use ::mystore_lib::models::product::{Product, NewProduct, FullProduct};
+    use ::mystore_lib::models::product::{Product, FormProduct, FullProduct};
     use ::mystore_lib::models::user::{ NewUser, User };
     use ::mystore_lib::graphql::schema::create_schema;
     use ::mystore_lib::graphql::{graphql, graphiql};
@@ -91,7 +91,7 @@ mod test{
 
         let (csrf_token, request_cookie) = login(srv.borrow_mut()).await;
 
-        let new_shoe = NewProduct {
+        let new_shoe = FormProduct {
             id: None,
             name: Some("Shoe".to_string()),
             stock: Some(10.4),
@@ -100,7 +100,7 @@ mod test{
             user_id: Some(user.id)
         };
 
-        let new_hat = NewProduct {
+        let new_hat = FormProduct {
             id: None,
             name: Some("Hat".to_string()),
             stock: Some(15.0),
@@ -109,7 +109,7 @@ mod test{
             user_id: Some(user.id)
         };
 
-        let _new_pants = NewProduct {
+        let _new_pants = FormProduct {
             id: None,
             name: Some("Pants".to_string()),
             stock: Some(25.0),
@@ -340,7 +340,7 @@ mod test{
             .get_result::<User>(&pg_pool).unwrap()
     }
 
-    fn create_product(user_id: i32, new_product: NewProduct) -> FullProduct {
+    fn create_product(user_id: i32, new_product: FormProduct) -> FullProduct {
         use std::sync::Arc;
         use ::mystore_lib::models::Context;
 
