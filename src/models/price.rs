@@ -87,7 +87,6 @@ impl PriceProductToUpdate {
         param_product_id: i32,
     ) -> Result<Vec<FullPriceProduct>, diesel::result::Error> {
         let connection: &PgConnection = &context.conn;
-        let param_user_id = context.user_id;
 
         connection.transaction(|| {
             let mut records_to_keep = vec![];
@@ -97,7 +96,7 @@ impl PriceProductToUpdate {
                 {
                     diesel::delete(
                         prices_products::table
-                            .filter(prices_products::user_id.eq(param_user_id))
+                            .filter(prices_products::user_id.eq(context.user_id))
                             .find(price_product_to_update.price_product.id.unwrap()),
                     )
                     .execute(connection)?;
@@ -110,7 +109,7 @@ impl PriceProductToUpdate {
                 .iter()
                 .map(|price_product| {
                     let new_price_product = FormPriceProduct {
-                        user_id: Some(param_user_id),
+                        user_id: Some(context.user_id),
                         product_id: Some(param_product_id),
                         ..price_product.clone().price_product
                     };
@@ -151,21 +150,19 @@ impl PriceProductToUpdate {
 impl Price {
     pub fn list(context: &Context) -> FieldResult<ListPrice> {
         let connection: &PgConnection = &context.conn;
-        let param_user_id = context.user_id;
 
         Ok(ListPrice {
             data: prices
-                .filter(user_id.eq(param_user_id))
+                .filter(user_id.eq(context.user_id))
                 .load::<Price>(connection)?,
         })
     }
 
     pub fn create(context: &Context, form: FormPrice) -> FieldResult<Price> {
         let connection: &PgConnection = &context.conn;
-        let param_user_id = context.user_id;
 
         let new_price = FormPrice {
-            user_id: Some(param_user_id),
+            user_id: Some(context.user_id),
             ..form
         };
 
@@ -177,18 +174,17 @@ impl Price {
 
     pub fn update(context: &Context, form: FormPrice) -> FieldResult<Price> {
         let connection: &PgConnection = &context.conn;
-        let param_user_id = context.user_id;
 
         let price_id = form.id.ok_or(diesel::result::Error::QueryBuilderError(
             "missing id".into(),
         ))?;
 
         let price_to_replace = FormPrice {
-            user_id: Some(param_user_id),
+            user_id: Some(context.user_id),
             ..form.clone()
         };
 
-        let price = diesel::update(prices.filter(user_id.eq(param_user_id)).find(price_id))
+        let price = diesel::update(prices.filter(user_id.eq(context.user_id)).find(price_id))
             .set(price_to_replace)
             .get_result::<Price>(connection)?;
 
@@ -197,19 +193,17 @@ impl Price {
 
     pub fn find(context: &Context, price_id: i32) -> FieldResult<Price> {
         let connection: &PgConnection = &context.conn;
-        let param_user_id = context.user_id;
 
         Ok(prices
-            .filter(user_id.eq(param_user_id))
+            .filter(user_id.eq(context.user_id))
             .find(price_id)
             .first(connection)?)
     }
 
     pub fn destroy(context: &Context, price_id: i32) -> FieldResult<bool> {
         let connection: &PgConnection = &context.conn;
-        let param_user_id = context.user_id;
 
-        diesel::delete(prices.filter(user_id.eq(param_user_id)).find(price_id))
+        diesel::delete(prices.filter(user_id.eq(context.user_id)).find(price_id))
             .execute(connection)?;
         Ok(true)
     }
