@@ -1,4 +1,4 @@
-use crate::models::price::{Price, PriceList};
+use crate::models::price::{Price, ListPrice};
 use crate::models::product::{FullProduct, ListProduct, Product};
 use crate::models::sale::{FormSale, FullSale, ListSale, Sale};
 use crate::models::Context;
@@ -31,8 +31,8 @@ impl Query {
         Product::show(context, product_id)
     }
 
-    fn ListPrice(context: &Context) -> FieldResult<PriceList> {
-        PriceList::list(context)
+    fn ListPrice(context: &Context) -> FieldResult<ListPrice> {
+        Price::list(context)
     }
 
     fn findPrice(context: &Context, price_id: i32) -> FieldResult<Price> {
