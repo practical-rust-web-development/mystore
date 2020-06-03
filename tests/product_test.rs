@@ -28,9 +28,9 @@ mod test{
     use ::mystore_lib::models::user::{NewUser, User};
     use ::mystore_lib::models::price::{ 
         PriceProductToUpdate, 
-        NewPriceProduct, 
-        NewPrice, 
-        NewPriceProductsToUpdate};
+        FormPriceProduct, 
+        FormPrice, 
+        FormPriceProductsToUpdate};
     use ::mystore_lib::graphql::schema::create_schema;
     use ::mystore_lib::graphql::{graphql, graphiql};
 
@@ -117,8 +117,8 @@ mod test{
             user_id: None
         };
 
-        let new_price_discount = NewPrice { id: None, name: Some("Discount".to_string()), user_id: None };
-        let new_price_normal = NewPrice { id: None, name: Some("Normal".to_string()), user_id: None };
+        let new_price_discount = FormPrice { id: None, name: Some("Discount".to_string()), user_id: None };
+        let new_price_normal = FormPrice { id: None, name: Some("Normal".to_string()), user_id: None };
 
         let price_discount = create_a_price(srv.borrow_mut(),
                                             csrf_token.clone(),
@@ -135,11 +135,11 @@ mod test{
         let price_normal_db = price_normal.get("data").unwrap().get("createPrice").unwrap();
         let price_normal_id: i32 = serde_json::from_value(price_normal_db.get("id").unwrap().clone()).unwrap();
 
-        let all_prices = NewPriceProductsToUpdate {
+        let all_prices = FormPriceProductsToUpdate {
             data: vec![
                 PriceProductToUpdate {
                     to_delete: false,
-                    price_product: NewPriceProduct {
+                    price_product: FormPriceProduct {
                         id: None,
                         product_id: None,
                         user_id: None,
@@ -149,7 +149,7 @@ mod test{
                 },
                 PriceProductToUpdate {
                     to_delete: false,
-                    price_product: NewPriceProduct {
+                    price_product: FormPriceProduct {
                         id: None,
                         product_id: None,
                         user_id: None,
@@ -314,7 +314,7 @@ mod test{
                               csrf_token: HeaderValue,
                               request_cookie: Cookie<'_>,
                               product: &FormProduct,
-                              prices: NewPriceProductsToUpdate) -> Value {
+                              prices: FormPriceProductsToUpdate) -> Value {
         
         let request = srv
                           .post("/graphql")
@@ -344,7 +344,7 @@ mod test{
             r#"
             {{
                 "query": "
-                    mutation CreateProduct($form: FormProduct!, $formPriceProducts: NewPriceProductsToUpdate!) {{
+                    mutation CreateProduct($form: FormProduct!, $formPriceProducts: FormPriceProductsToUpdate!) {{
                             createProduct(form: $form, formPriceProducts: $formPriceProducts) {{
                                 product {{
                                     id
@@ -471,7 +471,7 @@ mod test{
                               csrf_token: HeaderValue,
                               request_cookie: Cookie<'_>,
                               changes_to_product: &FormProduct,
-                              prices: NewPriceProductsToUpdate) -> Value {
+                              prices: FormPriceProductsToUpdate) -> Value {
 
         let prices_to_s: Vec<String> = prices.data.iter().map(|price| {
             format!(
@@ -494,8 +494,8 @@ mod test{
             r#"
             {{
                 "query": "
-                    mutation UpdateProduct($paramFormProduct: FormProduct!, $paramNewPriceProducts: NewPriceProductsToUpdate!) {{
-                            updateProduct(paramFormProduct: $paramFormProduct, paramNewPriceProducts: $paramNewPriceProducts) {{
+                    mutation UpdateProduct($paramFormProduct: FormProduct!, $paramFormPriceProducts: FormPriceProductsToUpdate!) {{
+                            updateProduct(paramFormProduct: $paramFormProduct, paramFormPriceProducts: $paramFormPriceProducts) {{
                                 product {{
                                     id
                                     name
@@ -527,7 +527,7 @@ mod test{
                         "cost": {},
                         "description": "{}"
                     }},
-                    "paramNewPriceProducts": {{ "data": [{}] }}
+                    "paramFormPriceProducts": {{ "data": [{}] }}
                 }}
             }}"#,
             changes_to_product.clone().name.unwrap(),
@@ -656,7 +656,7 @@ mod test{
     async fn create_a_price(srv: RefMut<'_, TestServer>,
                             csrf_token: HeaderValue,
                             request_cookie: Cookie<'_>,
-                            price: &NewPrice) -> Value {
+                            price: &FormPrice) -> Value {
 
         let request = srv
                         .post("/graphql")
@@ -670,7 +670,7 @@ mod test{
             r#"
             {{
                 "query": "
-                    mutation createPrice($form: NewPrice!) {{
+                    mutation createPrice($form: FormPrice!) {{
                             createPrice(form: $form) {{
                                 id
                                 name

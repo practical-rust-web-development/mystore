@@ -1,4 +1,4 @@
-use crate::models::price::{Price, PriceProduct, FullPriceProduct, NewPriceProductsToUpdate};
+use crate::models::price::{Price, PriceProduct, FullPriceProduct, FormPriceProductsToUpdate};
 use crate::schema::products;
 use diesel::BelongingToDsl;
 use diesel::PgConnection;
@@ -135,7 +135,7 @@ impl Product {
     pub fn create(
         context: &Context,
         form: FormProduct,
-        prices: NewPriceProductsToUpdate,
+        prices: FormPriceProductsToUpdate,
     ) -> FieldResult<FullProduct> {
         use diesel::RunQueryDsl;
 
@@ -214,7 +214,7 @@ impl Product {
     pub fn update(
         context: &Context,
         form: FormProduct,
-        prices: NewPriceProductsToUpdate,
+        prices: FormPriceProductsToUpdate,
     ) -> FieldResult<FullProduct> {
         use crate::schema::products::dsl;
         use diesel::ExpressionMethods;

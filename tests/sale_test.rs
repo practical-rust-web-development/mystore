@@ -33,7 +33,7 @@ mod test{
     use ::mystore_lib::models::sale::FormSale;
     use ::mystore_lib::models::sale_state::SaleState;
     use ::mystore_lib::models::sale_product::FormSaleProduct;
-    use ::mystore_lib::models::price::NewPriceProductsToUpdate;
+    use ::mystore_lib::models::price::FormPriceProductsToUpdate;
 
     #[actix_rt::test]
     async fn test() {
@@ -350,7 +350,7 @@ mod test{
             user_id,
             conn: Arc::new(pg_pool)
         };
-        Product::create(&context, new_product, NewPriceProductsToUpdate{data: vec![]}).unwrap()
+        Product::create(&context, new_product, FormPriceProductsToUpdate{data: vec![]}).unwrap()
     }
 
     async fn create_a_sale(srv: RefMut<'_, TestServer>,

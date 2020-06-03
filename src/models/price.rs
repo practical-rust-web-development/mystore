@@ -21,7 +21,7 @@ pub struct Price {
 
 #[derive(Insertable, Deserialize, Serialize, AsChangeset, Debug, Clone, PartialEq, juniper::GraphQLInputObject)]
 #[table_name="prices"]
-pub struct NewPrice {
+pub struct FormPrice {
     pub id: Option<i32>,
     pub name: Option<String>,
     pub user_id: Option<i32>
@@ -50,7 +50,7 @@ pub struct FullPriceProduct {
 #[derive(Insertable, Deserialize, Serialize, AsChangeset, Debug, Clone, PartialEq)]
 #[table_name="prices_products"]
 #[derive(juniper::GraphQLInputObject)]
-pub struct NewPriceProduct {
+pub struct FormPriceProduct {
     pub id: Option<i32>,
     pub price_id: i32,
     pub product_id: Option<i32>,
@@ -59,19 +59,19 @@ pub struct NewPriceProduct {
 }
 
 #[derive(Clone, juniper::GraphQLInputObject)]
-pub struct NewPriceProductsToUpdate{ pub data: Vec<PriceProductToUpdate> }
+pub struct FormPriceProductsToUpdate{ pub data: Vec<PriceProductToUpdate> }
 
 #[derive(Serialize, Deserialize, Clone)]
 #[derive(juniper::GraphQLInputObject)]
 pub struct PriceProductToUpdate {
-    pub price_product: NewPriceProduct,
+    pub price_product: FormPriceProduct,
     pub to_delete: bool
 }
 
 use diesel::PgConnection;
 
 impl PriceProductToUpdate {
-    pub fn batch_update(context: &Context, records: NewPriceProductsToUpdate, param_product_id: i32) ->
+    pub fn batch_update(context: &Context, records: FormPriceProductsToUpdate, param_product_id: i32) ->
         Result<Vec<FullPriceProduct>, diesel::result::Error> {
             use diesel::QueryDsl;
             use diesel::RunQueryDsl;
@@ -104,7 +104,7 @@ impl PriceProductToUpdate {
                         .iter()
                         .map(|price_product| {
 
-                            let new_price_product = NewPriceProduct {
+                            let new_price_product = FormPriceProduct {
                                 user_id: Some(param_user_id),
                                 product_id: Some(param_product_id),
                                 ..price_product.clone().price_product
@@ -170,14 +170,14 @@ impl PriceList {
 }
 
 impl Price {
-    pub fn create(context: &Context, new_price: NewPrice) ->
+    pub fn create(context: &Context, new_price: FormPrice) ->
         FieldResult<Price> {
             use diesel::RunQueryDsl;
 
             let connection: &PgConnection = &context.conn;
             let param_user_id = context.user_id;
 
-            let new_price = NewPrice {
+            let new_price = FormPrice {
                 user_id: Some(param_user_id),
                 ..new_price
             };
@@ -218,7 +218,7 @@ impl Price {
             Ok(true)
     }
 
-    pub fn update(context: &Context, edit_price: NewPrice) 
+    pub fn update(context: &Context, edit_price: FormPrice) 
         -> FieldResult<Price> {
             use diesel::QueryDsl;
             use diesel::RunQueryDsl;
@@ -233,7 +233,7 @@ impl Price {
                     "missing id".into(),
                 ))?;
 
-            let new_price_to_replace = NewPrice {
+            let new_price_to_replace = FormPrice {
                 user_id: Some(param_user_id),
                 ..edit_price.clone()
             };

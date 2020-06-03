@@ -2,10 +2,10 @@ use juniper::FieldResult;
 use crate::models::Context;
 use crate::models::sale::{FormSale, Sale, FullSale};
 use crate::models::sale_product::FormSaleProducts;
-use crate::models::price::NewPriceProductsToUpdate;
+use crate::models::price::FormPriceProductsToUpdate;
 use crate::models::product::{FullProduct, Product, FormProduct};
 use crate::models::sale_state::Event;
-use crate::models::price::{NewPrice, Price};
+use crate::models::price::{FormPrice, Price};
 
 pub struct Mutation;
 
@@ -55,7 +55,7 @@ impl Mutation {
     fn createProduct(
         context: &Context,
         form: FormProduct,
-        form_price_products: NewPriceProductsToUpdate,
+        form_price_products: FormPriceProductsToUpdate,
     ) -> FieldResult<FullProduct> {
         Product::create(context, form, form_price_products)
     }
@@ -63,7 +63,7 @@ impl Mutation {
     fn updateProduct(
         context: &Context,
         form: FormProduct,
-        form_price_products: NewPriceProductsToUpdate,
+        form_price_products: FormPriceProductsToUpdate,
     ) -> FieldResult<FullProduct> {
         Product::update(context, form, form_price_products)
     }
@@ -72,11 +72,11 @@ impl Mutation {
         Product::destroy(context, product_id)
     }
 
-    fn createPrice(context: &Context, form: NewPrice) -> FieldResult<Price> {
+    fn createPrice(context: &Context, form: FormPrice) -> FieldResult<Price> {
         Price::create(context, form)
     }
 
-    fn updatePrice(context: &Context, form: NewPrice) -> FieldResult<Price> {
+    fn updatePrice(context: &Context, form: FormPrice) -> FieldResult<Price> {
         Price::update(context, form)
     }
 
