@@ -30,7 +30,7 @@ mod test{
     use ::mystore_lib::models::user::{ NewUser, User };
     use ::mystore_lib::graphql::schema::create_schema;
     use ::mystore_lib::graphql::{graphql, graphiql};
-    use ::mystore_lib::models::sale::NewSale;
+    use ::mystore_lib::models::sale;
     use ::mystore_lib::models::sale_state::SaleState;
     use ::mystore_lib::models::sale_product::NewSaleProduct;
     use ::mystore_lib::models::price::NewPriceProductsToUpdate;
@@ -121,7 +121,7 @@ mod test{
         let shoe = create_product(user.id, new_shoe).product;
         let hat = create_product(user.id, new_hat).product;
 
-        let new_sale = NewSale {
+        let new_sale = sale::Form {
             id: None,
             user_id: None,
             sale_date: Some(NaiveDate::from_ymd(2019, 11, 12)),
@@ -157,7 +157,7 @@ mod test{
                     &sale_id,
                     sale).await;
 
-        let new_sale_to_update = NewSale {
+        let new_sale_to_update = sale::Form {
             id: Some(sale_id),
             user_id: None,
             sale_date: Some(NaiveDate::from_ymd(2019, 11, 10)),
@@ -350,13 +350,13 @@ mod test{
             user_id,
             conn: Arc::new(pg_pool)
         };
-        Product::create_product(&context, new_product, NewPriceProductsToUpdate{data: vec![]}).unwrap()
+        Product::create(&context, new_product, NewPriceProductsToUpdate{data: vec![]}).unwrap()
     }
 
     async fn create_a_sale(srv: RefMut<'_, TestServer>,
                             csrf_token: HeaderValue,
                             request_cookie: Cookie<'_>,
-                            new_sale: &NewSale,
+                            new_sale: &sale::Form,
                             new_sale_products: Vec<&NewSaleProduct>) -> Value {
 
         let request = srv
@@ -371,8 +371,8 @@ mod test{
             r#"
             {{
                 "query": "
-                    mutation CreateSale($paramNewSale: NewSale!, $paramNewSaleProducts: NewSaleProducts!) {{
-                            createSale(paramNewSale: $paramNewSale, paramNewSaleProducts: $paramNewSaleProducts) {{
+                    mutation CreateSale($form: Form!, $paramNewSaleProducts: NewSaleProducts!) {{
+                            createSale(form: $form, paramNewSaleProducts: $paramNewSaleProducts) {{
                                 sale {{
                                     id
                                     userId
@@ -398,7 +398,7 @@ mod test{
                     }}
                 ",
                 "variables": {{
-                    "paramNewSale": {{
+                    "form": {{
                         "saleDate": "{}",
                         "total": {}
                     }},
@@ -509,7 +509,7 @@ mod test{
     async fn update_a_sale(srv: RefMut<'_, TestServer>,
                            csrf_token: HeaderValue,
                            request_cookie: Cookie<'_>,
-                           changes_to_sale: &NewSale,
+                           changes_to_sale: &sale::Form,
                            changes_to_sale_products: Vec<&NewSaleProduct>) -> Value {
 
         let query = 
@@ -517,8 +517,8 @@ mod test{
             r#"
             {{
                 "query": "
-                    mutation UpdateSale($paramSale: NewSale!, $paramSaleProducts: NewSaleProducts!) {{
-                            updateSale(paramSale: $paramSale, paramSaleProducts: $paramSaleProducts) {{
+                    mutation UpdateSale($form: Form!, $paramSaleProducts: NewSaleProducts!) {{
+                            updateSale(form: $form, paramSaleProducts: $paramSaleProducts) {{
                                 sale {{
                                     id
                                     saleDate
@@ -540,7 +540,7 @@ mod test{
                     }}
                 ",
                 "variables": {{
-                    "paramSale": {{
+                    "form": {{
                         "id": {},
                         "saleDate": "{}",
                         "total": {}
@@ -715,7 +715,7 @@ mod test{
         let query = format!(r#"
             {{
                 "query": "
-                    query ListSale($search: NewSale!, $limit: Int!) {{
+                    query ListSale($search: Form!, $limit: Int!) {{
                         listSale(search: $search, limit: $limit) {{
                             data {{
                                 sale {{

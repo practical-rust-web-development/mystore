@@ -1,6 +1,6 @@
 use juniper::FieldResult;
 use crate::models::Context;
-use crate::models::sale::{Sale, NewSale, FullSale};
+use crate::models::sale;
 use crate::models::sale_product::NewSaleProducts;
 use crate::models::price::NewPriceProductsToUpdate;
 use crate::models::product::{FullProduct, Product, NewProduct};
@@ -15,41 +15,41 @@ pub struct Mutation;
 impl Mutation {
     fn createSale(
         context: &Context,
-        param_new_sale: NewSale,
+        form: sale::Form,
         param_new_sale_products: NewSaleProducts,
-    ) -> FieldResult<FullSale> {
-        Sale::create_sale(context, param_new_sale, param_new_sale_products)
+    ) -> FieldResult<sale::FullSale> {
+        sale::Sale::create(context, form, param_new_sale_products)
     }
 
     fn approveSale(context: &Context, sale_id: i32) -> FieldResult<bool> {
-        Sale::set_state(context, sale_id, Event::Approve)
+        sale::Sale::set_state(context, sale_id, Event::Approve)
     }
 
     fn cancelSale(context: &Context, sale_id: i32) -> FieldResult<bool> {
         //TODO: perform credit note or debit note
-        Sale::set_state(context, sale_id, Event::Cancel)
+        sale::Sale::set_state(context, sale_id, Event::Cancel)
     }
 
     fn paySale(context: &Context, sale_id: i32) -> FieldResult<bool> {
         //TODO: perform collection
-        Sale::set_state(context, sale_id, Event::Pay)
+        sale::Sale::set_state(context, sale_id, Event::Pay)
     }
 
     fn partiallyPaySale(context: &Context, sale_id: i32) -> FieldResult<bool> {
         //TODO: perform collection
-        Sale::set_state(context, sale_id, Event::PartiallyPay)
+        sale::Sale::set_state(context, sale_id, Event::PartiallyPay)
     }
 
     fn updateSale(
         context: &Context,
-        param_sale: NewSale,
+        form: sale::Form,
         param_sale_products: NewSaleProducts,
-    ) -> FieldResult<FullSale> {
-        Sale::update_sale(context, param_sale, param_sale_products)
+    ) -> FieldResult<sale::FullSale> {
+        sale::Sale::update(context, form, param_sale_products)
     }
 
     fn destroySale(context: &Context, sale_id: i32) -> FieldResult<bool> {
-        Sale::destroy_sale(context, sale_id)
+        sale::Sale::destroy(context, sale_id)
     }
 
     fn createProduct(
@@ -57,7 +57,7 @@ impl Mutation {
         param_new_product: NewProduct,
         param_new_price_products: NewPriceProductsToUpdate,
     ) -> FieldResult<FullProduct> {
-        Product::create_product(context, param_new_product, param_new_price_products)
+        Product::create(context, param_new_product, param_new_price_products)
     }
 
     fn updateProduct(
@@ -65,11 +65,11 @@ impl Mutation {
         param_product: NewProduct,
         param_price_products: NewPriceProductsToUpdate,
     ) -> FieldResult<FullProduct> {
-        Product::update_product(context, param_product, param_price_products)
+        Product::update(context, param_product, param_price_products)
     }
 
     fn destroyProduct(context: &Context, product_id: i32) -> FieldResult<bool> {
-        Product::destroy_product(context, product_id)
+        Product::destroy(context, product_id)
     }
 
     fn createPrice(context: &Context, new_price: NewPrice) -> FieldResult<Price> {

@@ -132,7 +132,7 @@ impl Product {
         })
     }
 
-    pub fn create_product(
+    pub fn create(
         context: &Context,
         param_new_product: NewProduct,
         prices: NewPriceProductsToUpdate,
@@ -191,7 +191,7 @@ impl Product {
         })
     }
 
-    pub fn destroy_product(
+    pub fn destroy(
         context: &Context,
         id: i32
     ) -> FieldResult<bool> {
@@ -211,7 +211,7 @@ impl Product {
         Ok(true)
     }
 
-    pub fn update_product(
+    pub fn update(
         context: &Context,
         new_product: NewProduct,
         prices: NewPriceProductsToUpdate,
