@@ -409,8 +409,8 @@ mod test{
         let query = format!(r#"
             {{
                 "query": "
-                    query ShowAProduct($productId: Int!) {{
-                        product(productId: $productId) {{
+                    query ShowProduct($productId: Int!) {{
+                        showProduct(productId: $productId) {{
                             product {{
                                 id
                                 name
@@ -463,7 +463,7 @@ mod test{
         let bytes = response.body().await.unwrap();
         let body = str::from_utf8(&bytes).unwrap();
         let response_product: Value = serde_json::from_str(body).unwrap();
-        let product = response_product.get("data").unwrap().get("product").unwrap();
+        let product = response_product.get("data").unwrap().get("showProduct").unwrap();
         assert_eq!(product, expected_product);
     }
 

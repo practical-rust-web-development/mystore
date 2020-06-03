@@ -73,7 +73,7 @@ use crate::models::price::PriceProductToUpdate;
 
 impl Product {
 
-    pub fn list_product(context: &Context, search: String, limit: i32, rank: f64) -> FieldResult<ListProduct> {
+    pub fn list(context: &Context, search: String, limit: i32, rank: f64) -> FieldResult<ListProduct> {
         use crate::schema;
         use crate::schema::products::dsl::*;
         use diesel::pg::Pg;
@@ -158,7 +158,7 @@ impl Product {
         Ok(FullProduct{product, price_products})
     }
 
-    pub fn product(context: &Context, product_id: i32) -> FieldResult<FullProduct> {
+    pub fn show(context: &Context, product_id: i32) -> FieldResult<FullProduct> {
         use crate::schema;
         use crate::schema::products::dsl::*;
         use diesel::ExpressionMethods;

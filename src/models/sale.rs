@@ -116,7 +116,7 @@ impl Sale {
         Ok(true)
     }
 
-    pub fn list_sale(context: &Context, search: Option<FormSale>, limit: i32) -> FieldResult<ListSale> {
+    pub fn list(context: &Context, search: Option<FormSale>, limit: i32) -> FieldResult<ListSale> {
         use diesel::{ExpressionMethods, GroupedBy, QueryDsl, RunQueryDsl};
         let conn: &PgConnection = &context.conn;
         let query = Sale::searching_records(search);
@@ -172,7 +172,7 @@ impl Sale {
         })
     }
 
-    pub fn sale(context: &Context, sale_id: i32) -> FieldResult<FullSale> {
+    pub fn show(context: &Context, sale_id: i32) -> FieldResult<FullSale> {
         use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
 
         let conn: &PgConnection = &context.conn;
