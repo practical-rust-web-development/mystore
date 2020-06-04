@@ -4,25 +4,21 @@ extern crate dotenv_codegen;
 mod common;
 
 mod test{
-    use actix_http::HttpService;
-    use actix_http_test::{ TestServer, test_server };
+    use actix_http_test::TestServer;
     use actix_web::http::header;
-    use actix_identity::{CookieIdentityPolicy, IdentityService};
-    use actix_web::{http, App};
-    use actix_cors::Cors;
+    use actix_web::http;
     use chrono::Duration;
-    use csrf_token::CsrfTokenGenerator;
     use actix_http::httpmessage::HttpMessage;
     use http::header::HeaderValue;
     use actix_http::cookie::Cookie;
 
-    use actix_service::map_config;
-    use actix_web::dev::AppConfig;
     use serde_json::{json, Value};
     use std::str;
     use std::time::Duration as std_duration;
+    use std::cell::RefMut;
+
     use crate::common::db_connection::establish_connection;
-    use std::cell::{RefCell, RefMut};
+    use crate::common::server_test;
 
     use ::mystore_lib::models::product::{FormProduct};
     use ::mystore_lib::models::user::{NewUser, User};
@@ -31,62 +27,13 @@ mod test{
         FormPriceProduct, 
         FormPrice, 
         FormPriceProductsToUpdate};
-    use ::mystore_lib::graphql::schema::create_schema;
-    use ::mystore_lib::graphql::{graphql, graphiql};
 
     #[actix_rt::test]
     async fn test() {
 
         create_user();
 
-        let csrf_token_header =
-            header::HeaderName::from_lowercase(b"x-csrf-token").unwrap();
-
-        let schema = std::sync::Arc::new(create_schema());
-
-        let srv = RefCell::new(test_server(move || {
-            HttpService::build()
-                .h1(map_config(
-                    App::new()
-                        .wrap(
-                            IdentityService::new(
-                                CookieIdentityPolicy::new(dotenv!("SECRET_KEY").as_bytes())
-                                    .domain("localhost")
-                                    .name("mystorejwt")
-                                    .path("/")
-                                    .max_age(Duration::days(1).num_seconds())
-                                    .secure(false)
-                            )
-                        )
-                        .wrap(
-                            Cors::new()
-                                .allowed_origin("localhost")
-                                .allowed_methods(vec!["GET", "POST", "PUT", "PATCH", "DELETE"])
-                                .allowed_headers(vec![header::AUTHORIZATION,
-                                                    header::CONTENT_TYPE,
-                                                    header::ACCEPT,
-                                                    csrf_token_header.clone()])
-                                .expose_headers(vec![csrf_token_header.clone()])
-                                .max_age(3600)
-                                .finish()
-                        )
-                        .data(
-                            CsrfTokenGenerator::new(
-                                dotenv!("CSRF_TOKEN_KEY").as_bytes().to_vec(),
-                                Duration::hours(1)
-                            )
-                        )
-                        .data(establish_connection())
-                        .data(schema.clone())
-                        .service(graphql)
-                        .service(graphiql)
-                        .service(::mystore_lib::handlers::authentication::login)
-                        .service(::mystore_lib::handlers::authentication::logout)
-                    ,  |_| AppConfig::default(),
-                ))
-                .tcp()
-            }
-        ));
+        let srv = server_test();
 
         let (csrf_token, request_cookie) = login(srv.borrow_mut()).await;
 
