@@ -16,11 +16,10 @@ mod test {
 
     use serde_json::{json, Value};
     use std::cell::RefMut;
-    use std::str;
     use std::time::Duration as std_duration;
 
     use crate::common::db_connection::establish_connection;
-    use crate::common::server_test;
+    use crate::common::{server_test, send_request};
 
     use ::mystore_lib::models::price::FormPriceProductsToUpdate;
     use ::mystore_lib::models::product::{FormProduct, FullProduct, Product};
@@ -348,13 +347,6 @@ mod test {
         new_sale: &FormSale,
         new_sale_products: Vec<&FormSaleProduct>,
     ) -> Value {
-        let request = srv
-            .post("/graphql")
-            .header(header::CONTENT_TYPE, "application/json")
-            .header("x-csrf-token", csrf_token.to_str().unwrap())
-            .cookie(request_cookie)
-            .timeout(std_duration::from_secs(600));
-
         let query = format!(
             r#"
             {{
@@ -416,14 +408,7 @@ mod test {
             new_sale_products.get(0).unwrap().total.unwrap()
         )
         .replace("\n", "");
-
-        let mut response = request.send_body(query).await.unwrap();
-
-        assert!(response.status().is_success());
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        serde_json::from_str(body).unwrap()
+        send_request(srv, csrf_token, request_cookie, query).await
     }
 
     async fn show_a_sale(
@@ -470,25 +455,7 @@ mod test {
         )
         .replace("\n", "");
 
-        let request = srv
-            .post("/graphql")
-            .header(header::CONTENT_TYPE, "application/json")
-            .header("x-csrf-token", csrf_token.to_str().unwrap())
-            .cookie(request_cookie)
-            .timeout(std_duration::from_secs(600));
-
-        let mut response = request.send_body(query).await.unwrap();
-
-        assert!(response.status().is_success());
-
-        assert_eq!(
-            response.headers().get(http::header::CONTENT_TYPE).unwrap(),
-            "application/json"
-        );
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        let response_sale: Value = serde_json::from_str(body).unwrap();
+        let response_sale: Value = send_request(srv, csrf_token, request_cookie, query).await;
         let sale = response_sale.get("data").unwrap().get("showSale").unwrap();
         assert_eq!(sale, expected_sale);
     }
@@ -560,21 +527,7 @@ mod test {
             changes_to_sale_products.get(0).unwrap().total.unwrap()
         )
         .replace("\n", "");
-
-        let request = srv
-            .post("/graphql")
-            .header(header::CONTENT_TYPE, "application/json")
-            .header("x-csrf-token", csrf_token.to_str().unwrap())
-            .cookie(request_cookie)
-            .timeout(std_duration::from_secs(600));
-
-        let mut response = request.send_body(query).await.unwrap();
-
-        assert!(response.status().is_success());
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        serde_json::from_str(body).unwrap()
+        send_request(srv, csrf_token, request_cookie, query).await
     }
 
     async fn approve_a_sale(
@@ -599,21 +552,7 @@ mod test {
             id
         )
         .replace("\n", "");
-
-        let request = srv
-            .post("/graphql")
-            .header(header::CONTENT_TYPE, "application/json")
-            .header("x-csrf-token", csrf_token.to_str().unwrap())
-            .cookie(request_cookie)
-            .timeout(std_duration::from_secs(600));
-
-        let mut response = request.send_body(query).await.unwrap();
-
-        assert!(response.status().is_success());
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        serde_json::from_str(body).unwrap()
+        send_request(srv, csrf_token, request_cookie, query).await
     }
 
     async fn cancel_a_sale(
@@ -638,21 +577,7 @@ mod test {
             id
         )
         .replace("\n", "");
-
-        let request = srv
-            .post("/graphql")
-            .header(header::CONTENT_TYPE, "application/json")
-            .header("x-csrf-token", csrf_token.to_str().unwrap())
-            .cookie(request_cookie)
-            .timeout(std_duration::from_secs(600));
-
-        let mut response = request.send_body(query).await.unwrap();
-
-        assert!(response.status().is_success());
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        serde_json::from_str(body).unwrap()
+        send_request(srv, csrf_token, request_cookie, query).await
     }
 
     async fn destroy_a_sale(
@@ -677,21 +602,7 @@ mod test {
             id
         )
         .replace("\n", "");
-
-        let request = srv
-            .post("/graphql")
-            .header(header::CONTENT_TYPE, "application/json")
-            .header("x-csrf-token", csrf_token.to_str().unwrap())
-            .cookie(request_cookie)
-            .timeout(std_duration::from_secs(600));
-
-        let mut response = request.send_body(query).await.unwrap();
-
-        assert!(response.status().is_success());
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        serde_json::from_str(body).unwrap()
+        send_request(srv, csrf_token, request_cookie, query).await
     }
 
     async fn search_sales(
@@ -736,20 +647,7 @@ mod test {
         )
         .replace("\n", "");
 
-        let request = srv
-            .post("/graphql")
-            .header(header::CONTENT_TYPE, "application/json")
-            .header("x-csrf-token", csrf_token.to_str().unwrap())
-            .cookie(request_cookie)
-            .timeout(std_duration::from_secs(600));
-
-        let mut response = request.send_body(query).await.unwrap();
-
-        assert!(response.status().is_success());
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        let response_sales: Value = serde_json::from_str(body).unwrap();
+        let response_sales: Value = send_request(srv, csrf_token, request_cookie, query).await;
         assert_eq!(data_to_compare, response_sales);
     }
 }
