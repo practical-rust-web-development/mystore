@@ -4,93 +4,39 @@ extern crate dotenv_codegen;
 mod common;
 
 mod test{
-    use actix_http::HttpService;
-    use actix_http_test::{ TestServer, test_server };
+    use actix_http_test::TestServer;
     use actix_web::http::header;
-    use actix_identity::{CookieIdentityPolicy, IdentityService};
-    use actix_web::{http, App};
-    use actix_cors::Cors;
+    use actix_web::http;
     use chrono::Duration;
-    use csrf_token::CsrfTokenGenerator;
     use actix_http::httpmessage::HttpMessage;
     use http::header::HeaderValue;
     use actix_http::cookie::Cookie;
 
-    use actix_service::map_config;
-    use actix_web::dev::AppConfig;
     use serde_json::{json, Value};
-    use std::str;
     use std::time::Duration as std_duration;
-    use crate::common::db_connection::establish_connection;
-    use std::cell::{RefCell, RefMut};
+    use std::cell::RefMut;
 
-    use ::mystore_lib::models::product::{NewProduct};
+    use crate::common::db_connection::establish_connection;
+    use crate::common::{server_test, send_request};
+
+    use ::mystore_lib::models::product::{FormProduct};
     use ::mystore_lib::models::user::{NewUser, User};
     use ::mystore_lib::models::price::{ 
         PriceProductToUpdate, 
-        NewPriceProduct, 
-        NewPrice, 
-        NewPriceProductsToUpdate};
-    use ::mystore_lib::graphql::schema::create_schema;
-    use ::mystore_lib::graphql::{graphql, graphiql};
+        FormPriceProduct, 
+        FormPrice, 
+        FormPriceProductsToUpdate};
 
     #[actix_rt::test]
     async fn test() {
 
         create_user();
 
-        let csrf_token_header =
-            header::HeaderName::from_lowercase(b"x-csrf-token").unwrap();
-
-        let schema = std::sync::Arc::new(create_schema());
-
-        let srv = RefCell::new(test_server(move || {
-            HttpService::build()
-                .h1(map_config(
-                    App::new()
-                        .wrap(
-                            IdentityService::new(
-                                CookieIdentityPolicy::new(dotenv!("SECRET_KEY").as_bytes())
-                                    .domain("localhost")
-                                    .name("mystorejwt")
-                                    .path("/")
-                                    .max_age(Duration::days(1).num_seconds())
-                                    .secure(false)
-                            )
-                        )
-                        .wrap(
-                            Cors::new()
-                                .allowed_origin("localhost")
-                                .allowed_methods(vec!["GET", "POST", "PUT", "PATCH", "DELETE"])
-                                .allowed_headers(vec![header::AUTHORIZATION,
-                                                    header::CONTENT_TYPE,
-                                                    header::ACCEPT,
-                                                    csrf_token_header.clone()])
-                                .expose_headers(vec![csrf_token_header.clone()])
-                                .max_age(3600)
-                                .finish()
-                        )
-                        .data(
-                            CsrfTokenGenerator::new(
-                                dotenv!("CSRF_TOKEN_KEY").as_bytes().to_vec(),
-                                Duration::hours(1)
-                            )
-                        )
-                        .data(establish_connection())
-                        .data(schema.clone())
-                        .service(graphql)
-                        .service(graphiql)
-                        .service(::mystore_lib::handlers::authentication::login)
-                        .service(::mystore_lib::handlers::authentication::logout)
-                    ,  |_| AppConfig::default(),
-                ))
-                .tcp()
-            }
-        ));
+        let srv = server_test();
 
         let (csrf_token, request_cookie) = login(srv.borrow_mut()).await;
 
-        let shoe = NewProduct {
+        let shoe = FormProduct {
             id: None,
             name: Some("Shoe".to_string()),
             stock: Some(10.4),
@@ -99,7 +45,7 @@ mod test{
             user_id: None
         };
 
-        let hat = NewProduct {
+        let hat = FormProduct {
             id: None,
             name: Some("Hat".to_string()),
             stock: Some(15.0),
@@ -108,7 +54,7 @@ mod test{
             user_id: None
         };
 
-        let pants = NewProduct {
+        let pants = FormProduct {
             id: None,
             name: Some("Pants".to_string()),
             stock: Some(25.0),
@@ -117,8 +63,8 @@ mod test{
             user_id: None
         };
 
-        let new_price_discount = NewPrice { id: None, name: Some("Discount".to_string()), user_id: None };
-        let new_price_normal = NewPrice { id: None, name: Some("Normal".to_string()), user_id: None };
+        let new_price_discount = FormPrice { id: None, name: Some("Discount".to_string()), user_id: None };
+        let new_price_normal = FormPrice { id: None, name: Some("Normal".to_string()), user_id: None };
 
         let price_discount = create_a_price(srv.borrow_mut(),
                                             csrf_token.clone(),
@@ -135,11 +81,11 @@ mod test{
         let price_normal_db = price_normal.get("data").unwrap().get("createPrice").unwrap();
         let price_normal_id: i32 = serde_json::from_value(price_normal_db.get("id").unwrap().clone()).unwrap();
 
-        let all_prices = NewPriceProductsToUpdate {
+        let all_prices = FormPriceProductsToUpdate {
             data: vec![
                 PriceProductToUpdate {
                     to_delete: false,
-                    price_product: NewPriceProduct {
+                    price_product: FormPriceProduct {
                         id: None,
                         product_id: None,
                         user_id: None,
@@ -149,7 +95,7 @@ mod test{
                 },
                 PriceProductToUpdate {
                     to_delete: false,
-                    price_product: NewPriceProduct {
+                    price_product: FormPriceProduct {
                         id: None,
                         product_id: None,
                         user_id: None,
@@ -161,33 +107,30 @@ mod test{
         };
 
         let response_shoe_db = create_a_product(srv.borrow_mut(),
-                                       csrf_token.clone(),
-                                       request_cookie.clone(),
-                                       &shoe,
-                                       all_prices.clone());
+                                                csrf_token.clone(),
+                                                request_cookie.clone(),
+                                                &shoe,
+                                                all_prices.clone()).await;
 
-        let shoe_db_value = response_shoe_db.await;
-        let shoe_db = shoe_db_value.get("data").unwrap().get("createProduct").unwrap();
+        let shoe_db = response_shoe_db.get("data").unwrap().get("createProduct").unwrap();
         let shoe_id: i32 = serde_json::from_value(shoe_db.get("product").unwrap().get("id").unwrap().clone()).unwrap();
 
         let response_hat_db = create_a_product(srv.borrow_mut(),
-                                      csrf_token.clone(),
-                                      request_cookie.clone(),
-                                      &hat,
-                                      all_prices.clone());
+                                               csrf_token.clone(),
+                                               request_cookie.clone(),
+                                               &hat,
+                                               all_prices.clone()).await;
 
-        let hat_db_value = response_hat_db.await;
-        let hat_db = hat_db_value.get("data").unwrap().get("createProduct").unwrap();
+        let hat_db = response_hat_db.get("data").unwrap().get("createProduct").unwrap();
         let hat_id: i32 = serde_json::from_value(hat_db.get("product").unwrap().get("id").unwrap().clone()).unwrap();
 
         let response_pants_db = create_a_product(srv.borrow_mut(),
-                                        csrf_token.clone(), 
-                                        request_cookie.clone(), 
-                                        &pants,
-                                        all_prices.clone());
+                                                 csrf_token.clone(), 
+                                                 request_cookie.clone(), 
+                                                 &pants,
+                                                 all_prices.clone()).await;
 
-        let pants_db_value = response_pants_db.await;
-        let pants_db = pants_db_value.get("data").unwrap().get("createProduct").unwrap();
+        let pants_db = response_pants_db.get("data").unwrap().get("createProduct").unwrap();
         let pants_id: i32 = serde_json::from_value(pants_db.get("product").unwrap().get("id").unwrap().clone()).unwrap();
 
         show_a_product(srv.borrow_mut(), 
@@ -196,7 +139,7 @@ mod test{
                        shoe_id, 
                        &shoe_db).await;
 
-        let updated_hat = NewProduct {
+        let updated_hat = FormProduct {
             id: None,
             name: Some("Hat".to_string()),
             stock: Some(30.0),
@@ -215,12 +158,11 @@ mod test{
             destroy_a_product(srv.borrow_mut(), 
                               csrf_token.clone(), 
                               request_cookie.clone(), 
-                              &pants_id);
+                              &pants_id).await;
         
-        let product_destroyed_value = response_product_destroyed.await;
         let destroyed: bool =
             serde_json::from_value(
-                product_destroyed_value
+                response_product_destroyed
                     .get("data")
                     .unwrap()
                     .get("destroyProduct")
@@ -317,16 +259,9 @@ mod test{
     async fn create_a_product(srv: RefMut<'_, TestServer>,
                               csrf_token: HeaderValue,
                               request_cookie: Cookie<'_>,
-                              product: &NewProduct,
-                              prices: NewPriceProductsToUpdate) -> Value {
+                              product: &FormProduct,
+                              prices: FormPriceProductsToUpdate) -> Value {
         
-        let request = srv
-                          .post("/graphql")
-                          .header(header::CONTENT_TYPE, "application/json")
-                          .header("x-csrf-token", csrf_token.to_str().unwrap())
-                          .cookie(request_cookie)
-                          .timeout(std_duration::from_secs(600));
-
         let prices_to_s: Vec<String> = prices.data.iter().map(|price| {
             format!(
                 r#"
@@ -348,8 +283,8 @@ mod test{
             r#"
             {{
                 "query": "
-                    mutation CreateProduct($paramNewProduct: NewProduct!, $paramNewPriceProducts: NewPriceProductsToUpdate!) {{
-                            createProduct(paramNewProduct: $paramNewProduct, paramNewPriceProducts: $paramNewPriceProducts) {{
+                    mutation CreateProduct($form: FormProduct!, $formPriceProducts: FormPriceProductsToUpdate!) {{
+                            createProduct(form: $form, formPriceProducts: $formPriceProducts) {{
                                 product {{
                                     id
                                     name
@@ -375,13 +310,13 @@ mod test{
                     }}
                 ",
                 "variables": {{
-                    "paramNewProduct": {{
+                    "form": {{
                         "name": "{}",
                         "stock": {},
                         "cost": {},
                         "description": "{}"
                     }},
-                    "paramNewPriceProducts": {{ "data": [{}] }}
+                    "formPriceProducts": {{ "data": [{}] }}
                 }}
             }}"#,
             product.clone().name.unwrap(),
@@ -390,18 +325,8 @@ mod test{
             product.clone().description.unwrap(),
             prices_to_s.join(","))
             .replace("\n", "");
-
-        let mut response =
-            request
-                .send_body(query)
-                .await
-                .unwrap();
-
-        assert!(response.status().is_success());
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        serde_json::from_str(body).unwrap()
+        
+        send_request(srv, csrf_token, request_cookie, query).await
     }
 
     async fn show_a_product(srv: RefMut<'_, TestServer>,
@@ -413,8 +338,8 @@ mod test{
         let query = format!(r#"
             {{
                 "query": "
-                    query ShowAProduct($productId: Int!) {{
-                        product(productId: $productId) {{
+                    query ShowProduct($productId: Int!) {{
+                        showProduct(productId: $productId) {{
                             product {{
                                 id
                                 name
@@ -445,37 +370,16 @@ mod test{
             }}
         "#, id).replace("\n", "");
 
-        let request = srv
-                          .post("/graphql")
-                          .header(header::CONTENT_TYPE, "application/json")
-                          .header("x-csrf-token", csrf_token.to_str().unwrap())
-                          .cookie(request_cookie)
-                          .timeout(std_duration::from_secs(600));
-
-        let mut response =
-            request
-                .send_body(query)
-                .await
-                .unwrap();
-        assert!(response.status().is_success());
-
-        assert_eq!(
-            response.headers().get(http::header::CONTENT_TYPE).unwrap(),
-            "application/json"
-        );
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        let response_product: Value = serde_json::from_str(body).unwrap();
-        let product = response_product.get("data").unwrap().get("product").unwrap();
+        let response_product: Value = send_request(srv, csrf_token, request_cookie, query).await;
+        let product = response_product.get("data").unwrap().get("showProduct").unwrap();
         assert_eq!(product, expected_product);
     }
 
     async fn update_a_product(srv: RefMut<'_, TestServer>,
                               csrf_token: HeaderValue,
                               request_cookie: Cookie<'_>,
-                              changes_to_product: &NewProduct,
-                              prices: NewPriceProductsToUpdate) -> Value {
+                              changes_to_product: &FormProduct,
+                              prices: FormPriceProductsToUpdate) -> Value {
 
         let prices_to_s: Vec<String> = prices.data.iter().map(|price| {
             format!(
@@ -498,8 +402,8 @@ mod test{
             r#"
             {{
                 "query": "
-                    mutation UpdateProduct($paramNewProduct: NewProduct!, $paramNewPriceProducts: NewPriceProductsToUpdate!) {{
-                            updateProduct(paramNewProduct: $paramNewProduct, paramNewPriceProducts: $paramNewPriceProducts) {{
+                    mutation UpdateProduct($paramFormProduct: FormProduct!, $paramFormPriceProducts: FormPriceProductsToUpdate!) {{
+                            updateProduct(paramFormProduct: $paramFormProduct, paramFormPriceProducts: $paramFormPriceProducts) {{
                                 product {{
                                     id
                                     name
@@ -525,13 +429,13 @@ mod test{
                     }}
                 ",
                 "variables": {{
-                    "paramNewProduct": {{
+                    "paramFormProduct": {{
                         "name": "{}",
                         "stock": {},
                         "cost": {},
                         "description": "{}"
                     }},
-                    "paramNewPriceProducts": {{ "data": [{}] }}
+                    "paramFormPriceProducts": {{ "data": [{}] }}
                 }}
             }}"#,
             changes_to_product.clone().name.unwrap(),
@@ -541,25 +445,7 @@ mod test{
             prices_to_s.join(","))
             .replace("\n", "");
 
-        let request = srv
-                          .post("/graphql")
-                          .header(header::CONTENT_TYPE, "application/json")
-                          .header("x-csrf-token", csrf_token.to_str().unwrap())
-                          .cookie(request_cookie)
-                          .timeout(std_duration::from_secs(600));
-
-
-        let mut response =
-            request
-                .send_body(query)
-                .await
-                .unwrap();
-
-        assert!(response.status().is_success());
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        serde_json::from_str(body).unwrap()
+        send_request(srv, csrf_token, request_cookie, query).await
     }
 
     async fn destroy_a_product(srv: RefMut<'_, TestServer>,
@@ -580,23 +466,7 @@ mod test{
             }}
         "#, id).replace("\n", "");
 
-        let request = srv
-                          .post("/graphql")
-                          .header(header::CONTENT_TYPE, "application/json")
-                          .header("x-csrf-token", csrf_token.to_str().unwrap())
-                          .cookie(request_cookie)
-                          .timeout(std_duration::from_secs(600));
-
-        let mut response =
-            request
-                .send_body(query)
-                .await
-                .unwrap();
-        assert!(response.status().is_success());
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        serde_json::from_str(body).unwrap()
+        send_request(srv, csrf_token, request_cookie, query).await
     }
 
     async fn search_products(srv: RefMut<'_, TestServer>,
@@ -637,45 +507,21 @@ mod test{
             }}
         "#).replace("\n", "");
 
-        let request = srv
-                          .post("/graphql")
-                          .header(header::CONTENT_TYPE, "application/json")
-                          .header("x-csrf-token", csrf_token.to_str().unwrap())
-                          .cookie(request_cookie)
-                          .timeout(std_duration::from_secs(600));
-
-        let mut response =
-            request
-                .send_body(query)
-                .await
-                .unwrap();
-        assert!(response.status().is_success());
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        let response_sales: Value = serde_json::from_str(body).unwrap();
+        let response_sales: Value = send_request(srv, csrf_token, request_cookie, query).await;
         assert_eq!(data_for_searching, response_sales);
     }
 
     async fn create_a_price(srv: RefMut<'_, TestServer>,
                             csrf_token: HeaderValue,
                             request_cookie: Cookie<'_>,
-                            price: &NewPrice) -> Value {
-
-        let request = srv
-                        .post("/graphql")
-                        .header(header::CONTENT_TYPE, "application/json")
-                        .header("x-csrf-token", csrf_token.to_str().unwrap())
-                        .cookie(request_cookie)
-                        .timeout(std_duration::from_secs(600));
-
+                            price: &FormPrice) -> Value {
         let query =
             format!(
             r#"
             {{
                 "query": "
-                    mutation createPrice($newPrice: NewPrice!) {{
-                            createPrice(newPrice: $newPrice) {{
+                    mutation createPrice($form: FormPrice!) {{
+                            createPrice(form: $form) {{
                                 id
                                 name
                                 userId
@@ -683,7 +529,7 @@ mod test{
                     }}
                 ",
                 "variables": {{
-                    "newPrice": {{
+                    "form": {{
                         "name": "{}"
                     }}
                 }}
@@ -691,17 +537,6 @@ mod test{
             price.clone().name.unwrap())
             .replace("\n", "");
 
-        let mut response =
-            request
-                .send_body(query)
-                .await
-                .unwrap();
-
-        //assert!(response.status().is_success());
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        println!("{:#?}", &body);
-        serde_json::from_str(body).unwrap()
+        send_request(srv, csrf_token, request_cookie, query).await
     }
 }

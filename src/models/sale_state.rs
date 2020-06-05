@@ -1,11 +1,10 @@
-#[derive(DbEnum, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[derive(juniper::GraphQLEnum)]
+#[derive(DbEnum, Debug, Clone, PartialEq, Serialize, Deserialize, juniper::GraphQLEnum)]
 pub enum SaleState {
     Draft,
     Approved,
     PartiallyPayed,
     Payed,
-    Cancelled
+    Cancelled,
 }
 
 #[derive(Debug)]
@@ -26,7 +25,10 @@ impl SaleState {
             (SaleState::Payed, Event::Cancel) => Ok(SaleState::Cancelled),
             (SaleState::PartiallyPayed, Event::Cancel) => Ok(SaleState::Cancelled),
             (SaleState::PartiallyPayed, Event::Pay) => Ok(SaleState::Payed),
-            (sale_state, sale_event) => Err(format!("You can't {:#?} from {:#?} state", sale_event, sale_state))
+            (sale_state, sale_event) => Err(format!(
+                "You can't {:#?} from {:#?} state",
+                sale_event, sale_state
+            )),
         }
     }
 }

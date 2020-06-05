@@ -1,16 +1,23 @@
+use chrono::NaiveDate;
+use diesel::{
+    sql_types, BelongingToDsl, BoolExpressionMethods, Connection, ExpressionMethods, GroupedBy,
+    PgConnection, QueryDsl, RunQueryDsl,
+};
+use juniper::FieldResult;
+
 use crate::errors::MyStoreError;
 use crate::models::product::{Product, PRODUCT_COLUMNS};
-use crate::models::sale_state::SaleState;
-use crate::schema;
-use crate::schema::sale_products;
-use crate::schema::sales;
-use chrono::NaiveDate;
-use diesel::sql_types;
-use diesel::BelongingToDsl;
-use diesel::PgConnection;
-use juniper::FieldResult;
-use crate::models::Context;
+use crate::models::sale_product::{
+    FormSaleProduct, FormSaleProducts, FullFormSaleProduct, FullSaleProduct, SaleProduct,
+};
 use crate::models::sale_state::Event;
+use crate::models::sale_state::SaleState;
+use crate::models::sale_state::SaleStateMapping;
+use crate::models::Context;
+use crate::schema;
+use crate::schema::sale_products::dsl as sale_products_dsl;
+use crate::schema::sales;
+use crate::schema::sales::dsl;
 
 #[derive(Identifiable, Queryable, Debug, Clone, PartialEq)]
 #[table_name = "sales"]
@@ -29,7 +36,7 @@ pub struct Sale {
 #[table_name = "sales"]
 #[derive(juniper::GraphQLInputObject)]
 #[graphql(description = "Sale Bill")]
-pub struct NewSale {
+pub struct FormSale {
     pub id: Option<i32>,
     pub sale_date: Option<NaiveDate>,
     pub user_id: Option<i32>,
@@ -38,10 +45,6 @@ pub struct NewSale {
     pub state: Option<SaleState>,
 }
 
-use crate::models::sale_product::{
-    FullNewSaleProduct, FullSaleProduct, NewSaleProduct, NewSaleProducts, SaleProduct,
-};
-
 #[derive(Debug, Clone, juniper::GraphQLObject)]
 pub struct FullSale {
     pub sale: Sale,
@@ -49,17 +52,15 @@ pub struct FullSale {
 }
 
 #[derive(Debug, Clone, juniper::GraphQLObject)]
-pub struct FullNewSale {
-    pub sale: NewSale,
-    pub sale_products: Vec<FullNewSaleProduct>,
+pub struct FullFormSale {
+    pub sale: FormSale,
+    pub sale_products: Vec<FullFormSaleProduct>,
 }
 
 #[derive(Debug, Clone, juniper::GraphQLObject)]
 pub struct ListSale {
     pub data: Vec<FullSale>,
 }
-
-use crate::models::sale_state::SaleStateMapping;
 
 type BoxedQuery<'a> = diesel::query_builder::BoxedSelectStatement<
     'a,
@@ -76,32 +77,9 @@ type BoxedQuery<'a> = diesel::query_builder::BoxedSelectStatement<
 >;
 
 impl Sale {
-    fn searching_records<'a>(search: Option<NewSale>) -> BoxedQuery<'a> {
-        use crate::schema::sales::dsl::*;
-        use diesel::ExpressionMethods;
-        use diesel::QueryDsl;
-
-        let mut query = schema::sales::table.into_boxed::<diesel::pg::Pg>();
-
-        if let Some(sale) = search {
-            if let Some(sale_sale_date) = sale.sale_date {
-                query = query.filter(sale_date.eq(sale_sale_date));
-            }
-            if let Some(sale_bill_number) = sale.bill_number {
-                query = query.filter(bill_number.eq(sale_bill_number));
-            }
-        }
-
-        query
-    }
-
     pub fn set_state(context: &Context, sale_id: i32, event: Event) -> FieldResult<bool> {
-        use crate::schema::sales::dsl;
-        use diesel::ExpressionMethods;
-        use diesel::QueryDsl;
-        use diesel::RunQueryDsl;
-
         let conn: &PgConnection = &context.conn;
+
         let sale_query_builder = dsl::sales
             .filter(dsl::user_id.eq(context.user_id))
             .find(sale_id);
@@ -116,8 +94,7 @@ impl Sale {
         Ok(true)
     }
 
-    pub fn list_sale(context: &Context, search: Option<NewSale>, limit: i32) -> FieldResult<ListSale> {
-        use diesel::{ExpressionMethods, GroupedBy, QueryDsl, RunQueryDsl};
+    pub fn list(context: &Context, search: Option<FormSale>, limit: i32) -> FieldResult<ListSale> {
         let conn: &PgConnection = &context.conn;
         let query = Sale::searching_records(search);
 
@@ -172,9 +149,7 @@ impl Sale {
         })
     }
 
-    pub fn sale(context: &Context, sale_id: i32) -> FieldResult<FullSale> {
-        use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl};
-
+    pub fn show(context: &Context, sale_id: i32) -> FieldResult<FullSale> {
         let conn: &PgConnection = &context.conn;
         let sale: Sale = schema::sales::table
             .filter(sales::dsl::user_id.eq(context.user_id))
@@ -209,19 +184,17 @@ impl Sale {
         })
     }
 
-    pub fn create_sale(
+    pub fn create(
         context: &Context,
-        param_new_sale: NewSale,
-        param_new_sale_products: NewSaleProducts,
+        form: FormSale,
+        form_sale_products: FormSaleProducts,
     ) -> FieldResult<FullSale> {
-        use diesel::{Connection, QueryDsl, RunQueryDsl};
-
         let conn: &PgConnection = &context.conn;
 
-        let new_sale = NewSale {
+        let new_sale = FormSale {
             user_id: Some(context.user_id),
             state: Some(SaleState::Draft),
-            ..param_new_sale
+            ..form
         };
 
         conn.transaction(|| {
@@ -237,25 +210,25 @@ impl Sale {
                 ))
                 .get_result::<Sale>(conn)?;
 
-            let sale_products: Result<Vec<FullSaleProduct>, _> = param_new_sale_products
+            let sale_products: Result<Vec<FullSaleProduct>, _> = form_sale_products
                 .data
                 .into_iter()
                 .map(|param_new_sale_product| {
-                    let new_sale_product = NewSaleProduct {
+                    let new_sale_product = FormSaleProduct {
                         sale_id: Some(sale.id),
                         ..param_new_sale_product.sale_product
                     };
                     let sale_product = diesel::insert_into(schema::sale_products::table)
                         .values(new_sale_product)
                         .returning((
-                            sale_products::dsl::id,
-                            sale_products::dsl::product_id,
-                            sale_products::dsl::sale_id,
-                            sale_products::dsl::amount,
-                            sale_products::dsl::discount,
-                            sale_products::dsl::tax,
-                            sale_products::dsl::price,
-                            sale_products::dsl::total,
+                            sale_products_dsl::id,
+                            sale_products_dsl::product_id,
+                            sale_products_dsl::sale_id,
+                            sale_products_dsl::amount,
+                            sale_products_dsl::discount,
+                            sale_products_dsl::tax,
+                            sale_products_dsl::price,
+                            sale_products_dsl::total,
                         ))
                         .get_result::<SaleProduct>(conn);
 
@@ -282,24 +255,15 @@ impl Sale {
         })
     }
 
-    pub fn update_sale(
+    pub fn update(
         context: &Context,
-        param_sale: NewSale,
-        param_sale_products: NewSaleProducts,
+        form: FormSale,
+        form_sale_products: FormSaleProducts,
     ) -> FieldResult<FullSale> {
-        use crate::schema::sales::dsl;
-        use diesel::BoolExpressionMethods;
-        use diesel::Connection;
-        use diesel::ExpressionMethods;
-        use diesel::QueryDsl;
-        use diesel::RunQueryDsl;
-
         let conn: &PgConnection = &context.conn;
-        let sale_id = param_sale
-            .id
-            .ok_or(diesel::result::Error::QueryBuilderError(
-                "missing id".into(),
-            ))?;
+        let sale_id = form.id.ok_or(diesel::result::Error::QueryBuilderError(
+            "missing id".into(),
+        ))?;
 
         conn.transaction(|| {
             let sale = diesel::update(
@@ -311,10 +275,10 @@ impl Sale {
                     )
                     .find(sale_id),
             )
-            .set(&param_sale)
+            .set(&form)
             .get_result::<Sale>(conn)?;
 
-            let sale_products: Result<Vec<FullSaleProduct>, _> = param_sale_products
+            let updated_sale_products: Result<Vec<FullSaleProduct>, _> = form_sale_products
                 .data
                 .into_iter()
                 .map(|param_sale_product| {
@@ -340,30 +304,39 @@ impl Sale {
 
             Ok(FullSale {
                 sale,
-                sale_products: sale_products?,
+                sale_products: updated_sale_products?,
             })
         })
     }
 
-    pub fn destroy_sale(context: &Context, sale_id: i32) -> FieldResult<bool> {
-        use crate::schema::sales::dsl;
-        use diesel::BoolExpressionMethods;
-        use diesel::ExpressionMethods;
-        use diesel::QueryDsl;
-        use diesel::RunQueryDsl;
-
+    pub fn destroy(context: &Context, sale_id: i32) -> FieldResult<bool> {
         let conn: &PgConnection = &context.conn;
-        let deleted_rows = 
-            diesel::delete(
-                dsl::sales
-                    .filter(
-                        dsl::user_id
-                            .eq(context.user_id)
-                            .and(dsl::state.eq(SaleState::Draft)),
-                    )
-                    .find(sale_id),
-            )
-            .execute(conn)?;
+
+        let deleted_rows = diesel::delete(
+            dsl::sales
+                .filter(
+                    dsl::user_id
+                        .eq(context.user_id)
+                        .and(dsl::state.eq(SaleState::Draft)),
+                )
+                .find(sale_id),
+        )
+        .execute(conn)?;
         Ok(deleted_rows == 1)
+    }
+
+    fn searching_records<'a>(search: Option<FormSale>) -> BoxedQuery<'a> {
+        let mut query = schema::sales::table.into_boxed::<diesel::pg::Pg>();
+
+        if let Some(sale) = search {
+            if let Some(sale_sale_date) = sale.sale_date {
+                query = query.filter(dsl::sale_date.eq(sale_sale_date));
+            }
+            if let Some(sale_bill_number) = sale.bill_number {
+                query = query.filter(dsl::bill_number.eq(sale_bill_number));
+            }
+        }
+
+        query
     }
 }
