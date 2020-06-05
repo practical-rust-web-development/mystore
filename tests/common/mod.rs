@@ -3,6 +3,8 @@ pub mod db_connection;
 use ::mystore_lib::graphql::schema::create_schema;
 use ::mystore_lib::graphql::{graphiql, graphql};
 use actix_cors::Cors;
+use actix_http::cookie::Cookie;
+use actix_http::http::header::{HeaderValue, CONTENT_TYPE};
 use actix_http::HttpService;
 use actix_http_test::{test_server, TestServer};
 use actix_identity::{CookieIdentityPolicy, IdentityService};
@@ -12,7 +14,10 @@ use actix_web::http::header;
 use actix_web::App;
 use chrono::Duration;
 use csrf_token::CsrfTokenGenerator;
-use std::cell::RefCell;
+use serde_json::Value;
+use std::cell::{RefCell, RefMut};
+use std::str;
+use std::time::Duration as std_duration;
 
 use crate::common::db_connection::establish_connection;
 
@@ -60,4 +65,31 @@ pub fn server_test() -> RefCell<TestServer> {
             ))
             .tcp()
     }))
+}
+
+pub async fn send_request(
+    srv: RefMut<'_, TestServer>,
+    csrf_token: HeaderValue,
+    request_cookie: Cookie<'_>,
+    query: String,
+) -> Value {
+    let request = srv
+        .post("/graphql")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header("x-csrf-token", csrf_token.to_str().unwrap())
+        .cookie(request_cookie)
+        .timeout(std_duration::from_secs(600));
+
+    let mut response = request.send_body(query).await.unwrap();
+
+    assert!(response.status().is_success());
+
+    assert_eq!(
+        response.headers().get(CONTENT_TYPE).unwrap(),
+        "application/json"
+    );
+
+    let bytes = response.body().await.unwrap();
+    let body = str::from_utf8(&bytes).unwrap();
+    serde_json::from_str(body).unwrap()
 }

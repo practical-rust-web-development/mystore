@@ -13,12 +13,11 @@ mod test{
     use actix_http::cookie::Cookie;
 
     use serde_json::{json, Value};
-    use std::str;
     use std::time::Duration as std_duration;
     use std::cell::RefMut;
 
     use crate::common::db_connection::establish_connection;
-    use crate::common::server_test;
+    use crate::common::{server_test, send_request};
 
     use ::mystore_lib::models::product::{FormProduct};
     use ::mystore_lib::models::user::{NewUser, User};
@@ -263,13 +262,6 @@ mod test{
                               product: &FormProduct,
                               prices: FormPriceProductsToUpdate) -> Value {
         
-        let request = srv
-                          .post("/graphql")
-                          .header(header::CONTENT_TYPE, "application/json")
-                          .header("x-csrf-token", csrf_token.to_str().unwrap())
-                          .cookie(request_cookie)
-                          .timeout(std_duration::from_secs(600));
-
         let prices_to_s: Vec<String> = prices.data.iter().map(|price| {
             format!(
                 r#"
@@ -333,18 +325,8 @@ mod test{
             product.clone().description.unwrap(),
             prices_to_s.join(","))
             .replace("\n", "");
-
-        let mut response =
-            request
-                .send_body(query)
-                .await
-                .unwrap();
-
-        assert!(response.status().is_success());
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        serde_json::from_str(body).unwrap()
+        
+        send_request(srv, csrf_token, request_cookie, query).await
     }
 
     async fn show_a_product(srv: RefMut<'_, TestServer>,
@@ -388,28 +370,7 @@ mod test{
             }}
         "#, id).replace("\n", "");
 
-        let request = srv
-                          .post("/graphql")
-                          .header(header::CONTENT_TYPE, "application/json")
-                          .header("x-csrf-token", csrf_token.to_str().unwrap())
-                          .cookie(request_cookie)
-                          .timeout(std_duration::from_secs(600));
-
-        let mut response =
-            request
-                .send_body(query)
-                .await
-                .unwrap();
-        assert!(response.status().is_success());
-
-        assert_eq!(
-            response.headers().get(http::header::CONTENT_TYPE).unwrap(),
-            "application/json"
-        );
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        let response_product: Value = serde_json::from_str(body).unwrap();
+        let response_product: Value = send_request(srv, csrf_token, request_cookie, query).await;
         let product = response_product.get("data").unwrap().get("showProduct").unwrap();
         assert_eq!(product, expected_product);
     }
@@ -484,25 +445,7 @@ mod test{
             prices_to_s.join(","))
             .replace("\n", "");
 
-        let request = srv
-                          .post("/graphql")
-                          .header(header::CONTENT_TYPE, "application/json")
-                          .header("x-csrf-token", csrf_token.to_str().unwrap())
-                          .cookie(request_cookie)
-                          .timeout(std_duration::from_secs(600));
-
-
-        let mut response =
-            request
-                .send_body(query)
-                .await
-                .unwrap();
-
-        assert!(response.status().is_success());
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        serde_json::from_str(body).unwrap()
+        send_request(srv, csrf_token, request_cookie, query).await
     }
 
     async fn destroy_a_product(srv: RefMut<'_, TestServer>,
@@ -523,23 +466,7 @@ mod test{
             }}
         "#, id).replace("\n", "");
 
-        let request = srv
-                          .post("/graphql")
-                          .header(header::CONTENT_TYPE, "application/json")
-                          .header("x-csrf-token", csrf_token.to_str().unwrap())
-                          .cookie(request_cookie)
-                          .timeout(std_duration::from_secs(600));
-
-        let mut response =
-            request
-                .send_body(query)
-                .await
-                .unwrap();
-        assert!(response.status().is_success());
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        serde_json::from_str(body).unwrap()
+        send_request(srv, csrf_token, request_cookie, query).await
     }
 
     async fn search_products(srv: RefMut<'_, TestServer>,
@@ -580,23 +507,7 @@ mod test{
             }}
         "#).replace("\n", "");
 
-        let request = srv
-                          .post("/graphql")
-                          .header(header::CONTENT_TYPE, "application/json")
-                          .header("x-csrf-token", csrf_token.to_str().unwrap())
-                          .cookie(request_cookie)
-                          .timeout(std_duration::from_secs(600));
-
-        let mut response =
-            request
-                .send_body(query)
-                .await
-                .unwrap();
-        assert!(response.status().is_success());
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        let response_sales: Value = serde_json::from_str(body).unwrap();
+        let response_sales: Value = send_request(srv, csrf_token, request_cookie, query).await;
         assert_eq!(data_for_searching, response_sales);
     }
 
@@ -604,14 +515,6 @@ mod test{
                             csrf_token: HeaderValue,
                             request_cookie: Cookie<'_>,
                             price: &FormPrice) -> Value {
-
-        let request = srv
-                        .post("/graphql")
-                        .header(header::CONTENT_TYPE, "application/json")
-                        .header("x-csrf-token", csrf_token.to_str().unwrap())
-                        .cookie(request_cookie)
-                        .timeout(std_duration::from_secs(600));
-
         let query =
             format!(
             r#"
@@ -634,16 +537,6 @@ mod test{
             price.clone().name.unwrap())
             .replace("\n", "");
 
-        let mut response =
-            request
-                .send_body(query)
-                .await
-                .unwrap();
-
-        assert!(response.status().is_success());
-
-        let bytes = response.body().await.unwrap();
-        let body = str::from_utf8(&bytes).unwrap();
-        serde_json::from_str(body).unwrap()
+        send_request(srv, csrf_token, request_cookie, query).await
     }
 }
