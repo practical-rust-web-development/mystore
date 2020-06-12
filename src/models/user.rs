@@ -10,7 +10,6 @@ use crate::schema::users::dsl::email;
 #[derive(Debug, Serialize, Deserialize, Queryable, Insertable)]
 #[table_name = "users"]
 pub struct User {
-    #[serde(skip)]
     pub id: i32,
     pub email: String,
     pub company: String,
