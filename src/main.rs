@@ -13,7 +13,7 @@ use actix_web::{App, HttpServer};
 use chrono::Duration;
 use csrf_token::CsrfTokenGenerator;
 
-use ::mystore_lib::graphql::graphql;
+use ::mystore_lib::graphql::{graphql,graphiql};
 use ::mystore_lib::graphql::schema::create_schema;
 use ::mystore_lib::handlers::authentication::{login, logout};
 use ::mystore_lib::handlers::register::register;
@@ -62,6 +62,7 @@ async fn main() -> std::io::Result<()> {
             .service(login)
             .service(logout)
             .service(graphql)
+            .service(graphiql)
     })
     .bind("127.0.0.1:8088")?
     .run()

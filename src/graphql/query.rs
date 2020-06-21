@@ -10,6 +10,10 @@ pub struct Query;
     Context = Context,
 )]
 impl Query {
+    fn dashboard(context: &Context) -> FieldResult<String> {
+        Ok("DashBoard".to_string())
+    }
+
     fn listSale(context: &Context, search: Option<FormSale>, limit: i32) -> FieldResult<ListSale> {
         Sale::list(context, search, limit)
     }

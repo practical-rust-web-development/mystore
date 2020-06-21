@@ -30,7 +30,7 @@ log = "0.4.6"
 actix-http = "1"
 diesel_full_text_search = { version = "1.2.1", git = "https://github.com/werner/diesel_full_text_search" }
 itertools = "0.8"
-juniper = "0.13"
+juniper = "0.14"
 diesel-derive-enum = { version = "0.4", features = ["postgres"] }
 
 [dev-dependencies]

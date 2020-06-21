@@ -15,7 +15,7 @@ use crate::serde::ser::Error as SerdeError;
 
 #[get("/graphiql")]
 pub async fn graphiql() -> HttpResponse {
-    let html = graphiql_source("http://127.0.0.1:8080/graphql");
+    let html = graphiql_source("/graphql");
     HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
         .body(html)
